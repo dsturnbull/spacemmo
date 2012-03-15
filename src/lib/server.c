@@ -69,8 +69,9 @@ serve(server_t *server, char *addr, unsigned short port)
                 continue;
 
             // init client
-            init_client_connection(&server->clients[slot], client_sock, &c);
-            init_client(&server->clients[slot]->client);
+            client_conn_t *conn = init_client_connection(server, client_sock, &c);
+            conn->client = init_client();
+            server->clients[slot] = conn;
 
             // listen to the client socket
             EV_SET(&ke, server->clients[slot]->sock, EVFILT_READ, EV_ADD, 0, 0, NULL);
@@ -151,12 +152,13 @@ find_client(client_conn_t **connections, int id)
     return client;
 }
 
-void
-init_client_connection(client_conn_t **conn, int sock, struct sockaddr_in *sockaddr)
+client_conn_t *
+init_client_connection(server_t *server, int sock, struct sockaddr_in *sockaddr)
 {
-    *conn = malloc(sizeof(client_conn_t));
-    (*conn)->sock = sock;
-    memcpy(&(*conn)->addr, &sockaddr->sin_addr, sizeof(sockaddr->sin_addr));
+    client_conn_t *conn = malloc(sizeof(client_conn_t));
+    conn->sock = sock;
+    memcpy(&conn->addr, &sockaddr->sin_addr, sizeof(sockaddr->sin_addr));
+    return conn;
 }
 
 void

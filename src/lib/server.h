@@ -26,7 +26,7 @@ struct server_conn_st {
 void serve(server_t *, char *, unsigned short);
 int find_slot(client_conn_t **);
 int find_client(client_conn_t **, int);
-void init_client_connection(client_conn_t **, int, struct sockaddr_in *);
+client_conn_t * init_client_connection(server_t *, int, struct sockaddr_in *);
 void update_server(server_t *);
 void foreach_client(server_t *, void(^)(client_conn_t *));
 

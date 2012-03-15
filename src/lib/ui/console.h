@@ -5,19 +5,19 @@
 #include "src/lib/spacemmo.h"
 
 struct console_st {
+    ui_t *ui;
     char *prompt;
     History *history;
     HistEvent ev;
-    struct client_st *client;
     char *hist_file;
     EditLine *el;
 };
 
-void init_console(console_t **, char *);
+console_t * init_console(ui_t *, char *);
 char * prompt(EditLine *);
 void update_console(console_t *, double);
-void process_input(EditLine *);
-void shutdown_console(EditLine *);
+void process_input(console_t *);
+void shutdown_console(console_t *);
 
 #endif
 

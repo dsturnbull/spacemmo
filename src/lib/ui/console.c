@@ -5,27 +5,31 @@
 
 #include "src/lib/client.h"
 #include "src/lib/entity.h"
-#include "src/lib/console.h"
-#include "src/lib/console.h"
+#include "src/lib/ui.h"
+#include "src/lib/ui/console.h"
+#include "src/lib/ui/console.h"
 
-void
-init_console(console_t **console, char *name)
+console_t *
+init_console(ui_t *ui, char *name)
 {
-    *console = calloc(1, sizeof(console_t));
+    console_t *console = calloc(1, sizeof(console_t));
+    console->ui = ui;
 
-    asprintf(&(*console)->hist_file, "%s/.spacemmo_%s_history", getenv("HOME"), name);
-    asprintf(&(*console)->prompt, "%s> ", name);
+    asprintf(&console->hist_file, "%s/.spacemmo_%s_history", getenv("HOME"), name);
+    asprintf(&console->prompt, "%s> ", name);
 
-    (*console)->el = el_init(name, stdin, stdout, stderr);
-    el_set((*console)->el, EL_EDITOR, "emacs");
-    el_set((*console)->el, EL_CLIENTDATA, (void *)(*console));
-    el_set((*console)->el, EL_PROMPT, prompt);
+    console->el = el_init(name, stdin, stdout, stderr);
+    el_set(console->el, EL_EDITOR, "emacs");
+    el_set(console->el, EL_CLIENTDATA, (void *)console);
+    el_set(console->el, EL_PROMPT, prompt);
 
-    (*console)->history = history_init();
-    history((*console)->history, &(*console)->ev, H_SETSIZE, 800);
-    history((*console)->history, &(*console)->ev, H_SETUNIQUE, 1);
-    history((*console)->history, &(*console)->ev, H_LOAD, (*console)->hist_file);
-    el_set((*console)->el, EL_HIST, history, (*console)->history);
+    console->history = history_init();
+    history(console->history, &console->ev, H_SETSIZE, 800);
+    history(console->history, &console->ev, H_SETUNIQUE, 1);
+    history(console->history, &console->ev, H_LOAD, console->hist_file);
+    el_set(console->el, EL_HIST, history, console->history);
+
+    return console;
 }
 
 char *
@@ -42,18 +46,16 @@ update_console(console_t *console, double dt)
 }
 
 void
-process_input(EditLine *el)
+process_input(console_t *console)
 {
-    console_t *console;
-    el_get(el, EL_CLIENTDATA, &console);
-    client_t *client = console->client;
+    client_t *client = console->ui->client;
 
     const char *buf;
 
     while (true) {
         int count = 0;
 
-        buf = el_gets(el, &count);
+        buf = el_gets(console->el, &count);
 
         if (buf == NULL)
             break;
@@ -90,14 +92,11 @@ process_input(EditLine *el)
 }
 
 void
-shutdown_console(EditLine *el)
+shutdown_console(console_t *console)
 {
-    console_t *console;
-    el_get(el, EL_CLIENTDATA, &console);
-
     history(console->history, &console->ev, H_SAVE, console->hist_file);
     history_end(console->history);
-    el_end(el);
+    el_end(console->el);
     free(console);
 }
 

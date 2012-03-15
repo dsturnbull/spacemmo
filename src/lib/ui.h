@@ -5,11 +5,12 @@
 
 struct ui_st {
     client_t *client;
-    console_t *console;
     gfx_t *gfx;
+    console_t *console;
+    input_t *input;
 };
 
-void init_ui(ui_t **);
+ui_t * init_ui(client_t *);
 void update_ui(ui_t *, double);
 void shutdown_ui(ui_t *);
 

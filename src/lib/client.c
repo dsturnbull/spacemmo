@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <assert.h>
 #include <dispatch/dispatch.h>
 #include <err.h>
 #include <netdb.h>
@@ -16,11 +17,13 @@
 #include "src/lib/server.h"
 #include "src/lib/net.h"
 #include "src/lib/ui.h"
+#include "src/lib/ui/gfx.h"
 
-void
-init_client(client_t **client)
+client_t *
+init_client()
 {
-    *client = calloc(1, sizeof(client_t));
+    client_t *client = calloc(1, sizeof(client_t));
+    return client;
 }
 
 void
@@ -33,16 +36,6 @@ shutdown_client(client_t *client)
 void
 update_client(client_t *client)
 {
-    struct timeval t1;
-    gettimeofday(&t1, NULL);
-
-    double t0f = (double)client->t.tv_sec + (double)client->t.tv_usec / 1000 / 1000;
-    double t1f = (double)t1.tv_sec + (double)t1.tv_usec / 1000 / 1000;
-    double dt = t1f - t0f;
-
-    if (t0f > 0) {
-        update_ui(client->ui, dt);
-    }
 }
 
 void
@@ -73,6 +66,13 @@ client_loop(client_t *client)
     // register game update timer
     memset(&ke, 0, sizeof(struct kevent));
     EV_SET(&ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000 * 1000 / TICK_HZ, NULL);
+
+    if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
+        err(EX_UNAVAILABLE, "set kevent");
+
+    // register gfx update timer
+    memset(&ke, 0, sizeof(struct kevent));
+    EV_SET(&ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000 * 1000 / FRAMERATE_HZ, NULL);
 
     if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set kevent");
@@ -111,7 +111,13 @@ client_loop(client_t *client)
         } else if (ke.ident == 0) {
             // timer fired
             update_client(client);
+        } else if (ke.ident == 1) {
+            // gfx fired
+            update_ui(client->ui, time_delta(FRAME_TIMER));
         }
+
+        if (client->quit)
+            return;
     }
 }
 
@@ -213,6 +219,11 @@ receive_entity_response(client_t *client, entity_response_packet_t *packet)
     if (client->entity && packet->entity.id == client->entity->id) {
         update_entity_state(client->entity, &packet->entity);
         entity_t *e = client->entity;
+        static bool initialised = false;
+        if (!initialised) {
+            init_gfx_ship_ui(client->ui->gfx);
+            initialised = true;
+        }
     }
 }
 

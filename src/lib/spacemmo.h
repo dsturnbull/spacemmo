@@ -1,6 +1,8 @@
 #ifndef __src_lib_spacemmo_h
 #define __src_lib_spacemmo_h
 
+#include <stdint.h>
+
 typedef enum packet_e {
     P_LOGIN_REQUEST,
     P_LOGIN_RESPONSE,
@@ -37,11 +39,14 @@ typedef struct entity_st entity_t;
 struct ui_st;
 typedef struct ui_st ui_t;
 
+struct gfx_st;
+typedef struct gfx_st gfx_t;
+
 struct console_st;
 typedef struct console_st console_t;
 
-struct gfx_st;
-typedef struct gfx_st gfx_t;
+struct input_st;
+typedef struct input_st input_t;
 
 struct login_request_packet_st;
 typedef struct login_request_packet_st login_request_packet_t;
@@ -72,6 +77,11 @@ typedef struct {
 typedef struct {
     int x, y, z;
 } vec3i;
+
+typedef uint8_t timer_t;
+
+void init_spacemmo();
+double time_delta(timer_t);
 
 #endif
 
