@@ -1,5 +1,5 @@
-#ifndef __src_lib_gfx_h
-#define __src_lib_gfx_h
+#ifndef __src_lib_ui_gfx_h
+#define __src_lib_ui_gfx_h
 
 #include <stdbool.h>
 
@@ -16,17 +16,10 @@ struct gfx_st {
     vec3f eye;
 };
 
-typedef struct png_st {
-    int w, h;
-    unsigned char **data;
-} png_t;
-
 gfx_t * init_gfx(ui_t *);
 
 void init_gfx_ui(gfx_t *);
 void init_gfx_menu(gfx_t *);
-void init_gfx_universe(gfx_t *);
-void render_universe(gfx_t *);
 
 void init_gfx_ship_ui(gfx_t *);
 void init_gfx_ship(gfx_t *);
@@ -34,7 +27,6 @@ void init_gfx_ship_status_window(gfx_t *);
 
 void update_gfx(gfx_t *, double);
 void shutdown_gfx(gfx_t *);
-bool load_png(png_t **, char *);
 
 int handle_event(gfx_t *, AG_DriverEvent *);
 void handle_resize(gfx_t *, AG_DriverEvent *);

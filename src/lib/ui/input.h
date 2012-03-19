@@ -1,5 +1,5 @@
-#ifndef __src_lib_input_h
-#define __src_lib_input_h
+#ifndef __src_lib_ui_input_h
+#define __src_lib_ui_input_h
 
 #include <agar/core.h>
 #include <agar/gui.h>

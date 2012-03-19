@@ -1,5 +1,5 @@
-#ifndef __src_lib_console_h
-#define __src_lib_console_h
+#ifndef __src_lib_ui_console_h
+#define __src_lib_ui_console_h
 
 #include <histedit.h>
 #include "src/lib/spacemmo.h"
