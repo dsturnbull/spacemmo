@@ -190,17 +190,20 @@ update_gfx(gfx_t *gfx, double dt)
                 // render entities
                 world_t *world = gfx->ui->client->server->world;
                 foreach_entity(world, ^(entity_t *e) {
-                    glTranslatef(e->pos.x, e->pos.y, e->pos.z);
+                    if (e != gfx->ui->client->entity) {
 
-                    glBegin(GL_QUADS);
+                        glTranslatef(e->pos.x, e->pos.y, e->pos.z);
 
-                    glColor3f(1, 0, 0);
-                    glVertex3f(0.0f, 0.0f, -50.0f);
-                    glVertex3f(1.0f, 0.0f, -50.0f);
-                    glVertex3f(1.0f, 1.0f, -50.0f);
-                    glVertex3f(0.0f, 1.0f, -50.0f);
+                        glBegin(GL_QUADS);
 
-                    glEnd();
+                        glColor3f(1, 0, 0);
+                        glVertex3f(0.0f, 0.0f, -50.0f);
+                        glVertex3f(1.0f, 0.0f, -50.0f);
+                        glVertex3f(1.0f, 1.0f, -50.0f);
+                        glVertex3f(0.0f, 1.0f, -50.0f);
+
+                        glEnd();
+                    }
                 });
             }
 

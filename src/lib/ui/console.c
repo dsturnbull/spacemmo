@@ -3,10 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+#include <ruby/ruby.h>
 
 #include "src/lib/client.h"
 #include "src/lib/entity.h"
@@ -37,31 +34,73 @@ init_console(ui_t *ui, char *name)
 
     console->t = tok_init(NULL);
 
-    console->lua = lua_open();
-    init_console_lua(console);
+    init_ruby_console(console);
 
     return console;
 }
 
 void
-init_console_lua(console_t *console)
+init_ruby_console(console_t *console)
 {
-    lua_State *L = console->lua;
-    luaL_openlibs(console->lua);
+	ruby_init();
+	ruby_init_loadpath();
 
-    luaL_openlib(L, "client", client_lib, 0);
+	VALUE kls;
+    
+    kls = rb_define_class("Client", rb_cObject);
+    rb_define_module_function(kls, "status", spacemmo_client_status, 0);
+    rb_define_module_function(kls, "entity", spacemmo_client_entity, 0);
 
-    lua_pushlightuserdata(L, (void *)console->ui->client->entity);
-    lua_setglobal(L, "entity");
+	kls = rb_define_class("Entity", rb_cObject);
+    rb_define_method(kls, "initialize", spacemmo_entity_initialize,  0);
+    rb_define_module_function(kls, "status", spacemmo_entity_status, 0);
+    rb_define_module_function(kls, "thrust", spacemmo_entity_thrust, 3);
+
+	kls = rb_define_class("World", rb_cObject);
 }
 
-int client_lib_status(lua_State *L) {
-    lua_getglobal(L, "entity");
-    entity_t *e = lua_touserdata(L, 1);
+VALUE
+spacemmo_client_status(VALUE self)
+{
+    console_t *console = (console_t *)rb_gv_get("CONSOLE");
+    entity_t *e = console->ui->client->entity;
     printf("pos: %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
     printf("vel: %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
     printf("acc: %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
-    return 0;
+    return Qnil;
+}
+
+VALUE
+spacemmo_client_entity(VALUE self)
+{
+    return Qnil;
+}
+
+VALUE spacemmo_client_set_thrust(VALUE self, VALUE value, int offset)
+{
+    console_t *console = (console_t *)rb_gv_get("CONSOLE");
+    entity_t *e = console->ui->client->entity;
+    float *acc = &e->acc.x + offset;
+    *acc = NUM2DBL(value);
+    return self;
+}
+
+VALUE
+spacemmo_client_set_x(VALUE self, VALUE value)
+{
+    return spacemmo_client_set_thrust(self, value, 0);
+}
+
+VALUE
+spacemmo_client_set_y(VALUE self, VALUE value)
+{
+    return spacemmo_client_set_thrust(self, value, 1);
+}
+
+VALUE
+spacemmo_client_set_z(VALUE self, VALUE value)
+{
+    return spacemmo_client_set_thrust(self, value, 2);
 }
 
 char *
@@ -96,10 +135,8 @@ process_input(console_t *console)
         line = strsep(&line, "\n");
         history(console->history, &console->ev, H_ENTER, buf);
 
-        if (luaL_dostring(console->lua, line) != 0) {
-            fprintf(stderr, "%s\n", lua_tostring(console->lua, -1));
-            lua_pop(console->lua, 1);
-        }
+        rb_gv_set("CONSOLE", (VALUE)console);
+        rb_eval_string(line);
     }
 
     console->ui->client->quit = true;
@@ -112,7 +149,7 @@ shutdown_console(console_t *console)
     history_end(console->history);
     tok_end(console->t);
     el_end(console->el);
-    lua_close(console->lua);
+	ruby_finalize();
     free(console);
 }
 

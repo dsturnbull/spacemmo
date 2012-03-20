@@ -2,10 +2,7 @@
 #define __src_lib_ui_console_h
 
 #include <histedit.h>
-
-#include <lua.h>
-#include <lualib.h>
-#include <lauxlib.h>
+#include <ruby/ruby.h>
 
 #include "src/lib/spacemmo.h"
 
@@ -17,19 +14,18 @@ struct console_st {
     char *hist_file;
     EditLine *el;
     Tokenizer *t;
-    lua_State *lua;
-};
-
-int client_lib___tostring(lua_State *);
-int client_lib_status(lua_State *);
-
-static const struct luaL_reg client_lib[] = {
-    {"status", client_lib_status},
-    {NULL, NULL}
 };
 
 console_t * init_console(ui_t *, char *);
-void init_console_lua(console_t *);
+
+void init_ruby_console(console_t *);
+VALUE spacemmo_client_status(VALUE);
+VALUE spacemmo_client_entity(VALUE);
+
+VALUE spacemmo_entity_initialize(VALUE);
+VALUE spacemmo_entity_status(VALUE);
+VALUE spacemmo_entity_thrust(VALUE, VALUE, int);
+
 char * prompt(EditLine *);
 void update_console(console_t *, double);
 void process_input(console_t *);
