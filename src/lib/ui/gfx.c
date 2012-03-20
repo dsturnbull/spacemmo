@@ -12,6 +12,8 @@
 #include <agar/gui/opengl.h>
 
 #include "src/lib/client.h"
+#include "src/lib/server.h"
+#include "src/lib/world.h"
 #include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/gfx.h"
@@ -32,6 +34,7 @@ init_gfx(ui_t *ui)
 {
     gfx_t *gfx = calloc(1, sizeof(gfx_t));
     gfx->ui = ui;
+    gfx->eye.z = -50;
 
     gfx->w = 1024;
     gfx->h = 768;
@@ -58,7 +61,8 @@ init_gfx(ui_t *ui)
 
         SDL_Surface *surf;
         int flags = SDL_HWSURFACE | SDL_OPENGL | SDL_RESIZABLE;
-        if ((surf = SDL_SetVideoMode(gfx->w, gfx->h, info->vfmt->BitsPerPixel, flags)) == NULL) {
+        if ((surf = SDL_SetVideoMode(gfx->w, gfx->h, info->vfmt->BitsPerPixel,
+                        flags)) == NULL) {
             fprintf(stderr, "%s", SDL_GetError());
             return NULL;
         }
@@ -70,7 +74,8 @@ init_gfx(ui_t *ui)
         }
     } else {
         // | AG_VIDEO_NOFRAME;
-        int flags = AG_VIDEO_HWSURFACE | AG_VIDEO_DOUBLEBUF | AG_VIDEO_OPENGL | AG_VIDEO_RESIZABLE;
+        int flags = AG_VIDEO_HWSURFACE | AG_VIDEO_DOUBLEBUF | AG_VIDEO_OPENGL
+            | AG_VIDEO_RESIZABLE;
         if ((AG_InitVideo(gfx->w, gfx->h, 24, flags) == -1)) {
             fprintf(stderr, "%s", AG_GetError());
             return NULL;
@@ -82,7 +87,11 @@ init_gfx(ui_t *ui)
         return NULL;
     }
 
+    SDL_WM_GrabInput(SDL_GRAB_ON);
+    //SDL_ShowCursor(0);
+
     init_gfx_ui(gfx);
+    init_gfx_ship_ui(gfx);
 
     return gfx;
 }
@@ -91,7 +100,7 @@ void
 init_gfx_ui(gfx_t *gfx)
 {
     init_gfx_menu(gfx);
-    init_skybox("data/space.png");
+    //init_skybox("data/space.png");
 }
 
 void
@@ -161,44 +170,58 @@ init_gfx_ship_status_window(gfx_t *gfx)
 void
 update_gfx(gfx_t *gfx, double dt)
 {
-    /*
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glViewport(0, 0, gfx->w, gfx->h);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(90, 1, 0.1, 100);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -50.0f);
-
-    //gluLookAt(0, 0, 0, 0, 0, 0, 1, 0, 0);
-    //glTranslatef(-gfx->eye.x, gfx->eye.y, 0);
-
-    glBegin(GL_QUADS);
-    glVertex3f(4.0f, 0.0f, 20.0f);
-    glVertex3f(4.0f, 4.0f, 20.0f);
-    glVertex3f(0.0f, 4.0f, 20.0f);
-    glVertex3f(0.0f, 0.0f, 20.0f);
-    glEnd();
-
-    glLoadIdentity();
-    */
-
-    AG_Window *win;
-    AG_LockVFS(gfx->drv);
     AG_BeginRendering(gfx->drv);
+    {
+        glPushMatrix();
+        {
+            glViewport(0, 0, gfx->w, gfx->h);
 
-    AG_FOREACH_WINDOW(win, gfx->drv) {
-        AG_ObjectLock(win);
-        AG_WindowDraw(win);
-        AG_ObjectUnlock(win);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            gluPerspective(45, gfx->w / gfx->h, 0.1, 1000);
+
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            {
+                glLoadIdentity();
+
+                // render entities
+                world_t *world = gfx->ui->client->server->world;
+                foreach_entity(world, ^(entity_t *e) {
+                    glTranslatef(e->pos.x, e->pos.y, e->pos.z);
+
+                    glBegin(GL_QUADS);
+
+                    glColor3f(1, 0, 0);
+                    glVertex3f(0.0f, 0.0f, -50.0f);
+                    glVertex3f(1.0f, 0.0f, -50.0f);
+                    glVertex3f(1.0f, 1.0f, -50.0f);
+                    glVertex3f(0.0f, 1.0f, -50.0f);
+
+                    glEnd();
+                });
+            }
+
+            glPopMatrix();
+        }
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+
+        AG_LockVFS(gfx->drv);
+
+        AG_Window *win;
+        AG_FOREACH_WINDOW(win, gfx->drv) {
+            AG_ObjectLock(win);
+            AG_WindowDraw(win);
+            AG_ObjectUnlock(win);
+        }
+
+        AG_UnlockVFS(gfx->drv);
     }
 
     AG_EndRendering(gfx->drv);
-    AG_UnlockVFS(gfx->drv);
 
     AG_DriverEvent ev;
     while (AG_PendingEvents(gfx->drv) > 0)
@@ -247,6 +270,7 @@ handle_event(gfx_t *gfx, AG_DriverEvent *ev)
             return AG_ProcessEvent(gfx->drv, ev);
 
         case AG_DRIVER_KEY_DOWN:
+        case AG_DRIVER_KEY_UP:
             if (handle_keypress(gfx->ui->input, ev))
                 return 1;
             break;
@@ -255,9 +279,10 @@ handle_event(gfx_t *gfx, AG_DriverEvent *ev)
             gfx->ui->client->quit = true;
             return 1;
 
-        default:
-            handle_mouse(gfx->ui->input, ev);
+        case AG_DRIVER_MOUSE_MOTION:
+            return handle_mouse(gfx->ui->input, ev);
 
+        default:
             if (!bg_focused && show_ui) {
                 return AG_ProcessEvent(gfx->drv, ev);
             } else {

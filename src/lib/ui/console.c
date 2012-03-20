@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "src/lib/client.h"
 #include "src/lib/entity.h"
@@ -28,6 +29,8 @@ init_console(ui_t *ui, char *name)
     history(console->history, &console->ev, H_SETUNIQUE, 1);
     history(console->history, &console->ev, H_LOAD, console->hist_file);
     el_set(console->el, EL_HIST, history, console->history);
+
+    console->t = tok_init(NULL);
 
     return console;
 }
@@ -63,32 +66,35 @@ process_input(console_t *console)
         char *line = strdup(buf);
         line = strsep(&line, "\n");
         history(console->history, &console->ev, H_ENTER, buf);
-        char *cmd = strsep(&line, " ");
 
-        if (strcmp(cmd, "login") == 0) {
-            client->username = line;
-            client_send(client, P_LOGIN_REQUEST);
+        int argc;
+        char **argv;
 
-        } else if (strcmp(cmd, "thrust") == 0) {
-            float x = atof(strsep(&line, " "));
-            float y = atof(strsep(&line, " "));
-            float z = atof(strsep(&line, " "));
+        tok_reset(console->t);
+        int result = tok_str(console->t, line, &argc, (const char ***)&argv);
+        const char *str = argv[0];
+        cmd_t cmd = lookup(str);
 
-            client->entity->acc.x = x;
-            client->entity->acc.y = y;
-            client->entity->acc.z = z;
-            client_send(client, P_ENTITY_UPDATE_REQUEST);
+        switch (cmd) {
+            case CMD_NOTFOUND:
+                fprintf(stderr, "%s not found\n", str);
+                break;
 
-        } else if (strcmp(cmd, "status") == 0) {
-            if (client->entity) {
-                printf("entity:\n");
-                printf("\tpos %f, %f, %f\n", client->entity->pos.x, client->entity->pos.y, client->entity->pos.z);
-                printf("\tvel %f, %f, %f\n", client->entity->vel.x, client->entity->vel.y, client->entity->vel.z);
-                printf("\tacc %f, %f, %f\n", client->entity->acc.x, client->entity->acc.y, client->entity->acc.z);
-            }
-        } else if (strcmp(cmd, "scan") == 0) {
+            case CMD_STATUS:
+                cmd_status(console, argc, argv);
+                break;
+
+            case CMD_THRUST:
+                cmd_thrust(console, argc, argv);
+                break;
+
+            case CMD_QUIT:
+                console->ui->client->quit = true;
+                break;
         }
     }
+
+    console->ui->client->quit = true;
 }
 
 void
@@ -96,7 +102,39 @@ shutdown_console(console_t *console)
 {
     history(console->history, &console->ev, H_SAVE, console->hist_file);
     history_end(console->history);
+    tok_end(console->t);
     el_end(console->el);
     free(console);
+}
+
+cmd_t
+lookup(const char *str)
+{
+    int cmd_num = sizeof(cmds) / sizeof(*cmds);
+
+    for (int i = 0; i < cmd_num; i++)
+        if (strncmp(str, cmds[i], strlen(cmds[i])) == 0)
+            return (cmd_t)i + 1;
+
+    return CMD_NOTFOUND;
+}
+
+void
+cmd_status(console_t *console, int argc, char *argv[])
+{
+    entity_t *e;
+    if ((e = console->ui->client->entity) != NULL) {
+        fprintf(stderr, "pos %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
+        fprintf(stderr, "vel %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
+        fprintf(stderr, "acc %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
+    }
+}
+
+void
+cmd_thrust(console_t *console, int argc, char *argv[])
+{
+    int ch;
+
+    //while ((ch = getopt(
 }
 

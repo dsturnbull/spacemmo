@@ -4,8 +4,8 @@
 #define MAX_CLIENTS     24
 #define LISTEN_BACKLOG  24
 #define LISTEN_QUEUE    24
-#define UPDATE_HZ       50.0f
-#define TICK_HZ         50.0f
+#define SV_UPDATE_HZ    50.0f
+#define SV_TICK_HZ      50.0f
 
 #include <netinet/in.h>
 #include <sys/time.h>
@@ -32,11 +32,6 @@ void foreach_client(server_t *, void(^)(client_conn_t *));
 
 int get_socket(char *, unsigned short);
 void server_receive(server_t *, client_conn_t *, char *, int);
-void send_entity(server_t *, client_conn_t *, entity_t *);
-
-void receive_login_request(server_t *, client_conn_t *, login_request_packet_t *);
-void receive_entity_request(server_t *, client_conn_t *, entity_request_packet_t *);
-void receive_entity_update_request(server_t *, client_conn_t *, entity_update_request_packet_t *);
 
 #endif
 

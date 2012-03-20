@@ -18,11 +18,17 @@
 #include "src/lib/net.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/gfx.h"
+#include "src/lib/ui/input.h"
+#include "src/lib/world.h"
 
 client_t *
 init_client()
 {
     client_t *client = calloc(1, sizeof(client_t));
+    client->server = calloc(1, sizeof(server_t));
+    client->server->world = init_world();
+    client->entity = calloc(1, sizeof(entity_t));
+    add_entity(client->server->world, client->entity);
     return client;
 }
 
@@ -36,6 +42,7 @@ shutdown_client(client_t *client)
 void
 update_client(client_t *client)
 {
+    update_server(client->server);
 }
 
 void
@@ -52,7 +59,8 @@ client_loop(client_t *client)
     // listen on server socket
     if (client->server_conn) {
         memset(&ke, 0, sizeof(struct kevent));
-        EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_ADD, 0, LISTEN_BACKLOG, NULL);
+        EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_ADD, 0,
+                LISTEN_BACKLOG, NULL);
 
         // specify kqueue update timeout
         struct timespec ts;
@@ -65,14 +73,16 @@ client_loop(client_t *client)
 
     // register game update timer
     memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000 * 1000 / TICK_HZ, NULL);
+    EV_SET(&ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
+            1000 * 1000 / SV_TICK_HZ, NULL);
 
     if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set kevent");
 
     // register gfx update timer
     memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000 * 1000 / FRAMERATE_HZ, NULL);
+    EV_SET(&ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
+            1000 * 1000 / FRAMERATE_HZ, NULL);
 
     if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set kevent");
@@ -82,7 +92,8 @@ client_loop(client_t *client)
         if (kevent(kq, NULL, 0, &ke, 1, NULL) <= 0)
             continue;
 
-        if (client->server_conn && ke.ident == (uintptr_t)client->server_conn->sock) {
+        if (client->server_conn &&
+                ke.ident == (uintptr_t)client->server_conn->sock) {
             // traffic on server socket
             struct sockaddr_in s;
             socklen_t len;
@@ -96,7 +107,8 @@ client_loop(client_t *client)
 
             // disconnect
             if (n == 0) {
-				EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_DELETE, 0, 0, NULL);
+				EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_DELETE,
+                        0, 0, NULL);
                 if (kevent(kq, &ke, 1, 0, 0, NULL) == -1)
                     err(EX_UNAVAILABLE, "disconnect user");
 
@@ -109,7 +121,7 @@ client_loop(client_t *client)
             // handle packet
             client_receive(client, buf, n);
         } else if (ke.ident == 0) {
-            // timer fired
+            // game update timer fired
             update_client(client);
         } else if (ke.ident == 1) {
             // gfx fired
@@ -125,7 +137,7 @@ bool
 connect_server(server_conn_t **s, char *addr, unsigned short port)
 {
     socklen_t len = sizeof(struct sockaddr);
-    struct sockaddr_in server;
+    struct sockaddr_in sv;
     struct hostent *server_addr;
 
     (*s) = calloc(1, sizeof(client_t));
@@ -136,33 +148,15 @@ connect_server(server_conn_t **s, char *addr, unsigned short port)
     if ((server_addr = gethostbyname(addr)) == NULL)
         err(EX_UNAVAILABLE, "gethostbyname");
 
-    server.sin_family = PF_INET;
-    memcpy(&server.sin_addr.s_addr, server_addr->h_addr, server_addr->h_length);
-    server.sin_port = htons(port);
+    sv.sin_family = PF_INET;
+    memcpy(&sv.sin_addr.s_addr, server_addr->h_addr, server_addr->h_length);
+    sv.sin_port = htons(port);
 
-    if (connect((*s)->sock, (struct sockaddr *)&server, len) == -1)
+    if (connect((*s)->sock, (struct sockaddr *)&sv, len) == -1)
         err(EX_UNAVAILABLE, "connect");
 
-    printf("connected\n");
+    fprintf(stderr, "connected\n");
     return true;
-}
-
-void
-client_send(client_t *client, packet_e type)
-{
-    switch (type) {
-        case P_LOGIN_REQUEST:
-            send_login_request(client);
-            break;
-
-        case P_ENTITY_UPDATE_REQUEST:
-            send_entity_update_request(client);
-            break;
-
-        default:
-            printf("unhandled packet\n");
-            break;
-    }
 }
 
 void
@@ -172,73 +166,13 @@ client_receive(client_t *server, char *buf, int len)
     packet_t *packet = (packet_t *)buf;
 
     switch (packet->type) {
-        case P_LOGIN_RESPONSE:
-            receive_login_response(server, (login_response_packet_t *)buf);
-            consumed = sizeof(login_response_packet_t);
-            break;
-
-        case P_ENTITY_RESPONSE:
-            receive_entity_response(server, (entity_response_packet_t *)buf);
-            consumed = sizeof(entity_response_packet_t);
-            break;
-
         default:
-            printf("unhandled packet\n");
+            fprintf(stderr, "unhandled packet %i\n", packet->type);
+            consumed = len; // maybe fuck
             break;
     }
 
     if (len - consumed > 0)
         client_receive(server, buf + consumed, len - consumed);
-}
-
-void
-send_login_request(client_t *client)
-{
-    login_request_packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.type = P_LOGIN_REQUEST;
-    strncpy(p.username, client->username, sizeof(p.username));
-    net_send(client->server_conn->sock, (char *)&p, sizeof(p));
-}
-
-void
-receive_login_response(client_t *client, login_response_packet_t *packet)
-{
-    client->entity = malloc(sizeof(entity_t));
-    memcpy(client->entity, &packet->entity, sizeof(entity_t));
-}
-
-void
-send_entity_request(client_t *client, entity_id_t id)
-{
-}
-
-void
-receive_entity_response(client_t *client, entity_response_packet_t *packet)
-{
-    if (client->entity && packet->entity.id == client->entity->id) {
-        update_entity_state(client->entity, &packet->entity);
-        entity_t *e = client->entity;
-        static bool initialised = false;
-        if (!initialised) {
-            init_gfx_ship_ui(client->ui->gfx);
-            initialised = true;
-        }
-    }
-}
-
-void
-send_entity_update_request(client_t *client)
-{
-    entity_update_request_packet_t p;
-    memset(&p, 0, sizeof(p));
-    p.type = P_ENTITY_UPDATE_REQUEST;
-    memcpy(&p.entity, client->entity, sizeof(p.entity));
-    net_send(client->server_conn->sock, (char *)&p, sizeof(p));
-}
-
-void
-receive_entity_update_response(client_t *client, entity_update_response_packet_t *packet)
-{
 }
 

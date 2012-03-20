@@ -14,18 +14,17 @@ init_ui(client_t *client)
     ui_t *ui = calloc(1, sizeof(ui_t));
     ui->client = client;
 
-    ui->gfx = init_gfx(ui);
-    ui->console = init_console(ui, "client");
-    ui->input = init_input(ui);
-
     return ui;
 }
 
 void
 update_ui(ui_t *ui, double dt)
 {
-    update_console(ui->console, dt);
-    update_gfx(ui->gfx, dt);
+    if (ui->console)
+        update_console(ui->console, dt);
+
+    if (ui->gfx)
+        update_gfx(ui->gfx, dt);
 }
 
 void

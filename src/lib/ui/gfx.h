@@ -14,6 +14,7 @@ struct gfx_st {
     AG_Driver *drv;
     AG_Menu *menu;
     vec3f eye;
+    vec3f tgt;
 };
 
 gfx_t * init_gfx(ui_t *);

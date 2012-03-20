@@ -6,19 +6,15 @@
 #include "src/lib/client.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
-#include "src/lib/ui/gfx.h"
-#include "src/lib/ui/input.h"
 
 int
 main(int argc, char *argv[])
 {
     init_spacemmo();
 
-    client_t *client    = init_client();
-    client->ui          = init_ui(client);
-    client->ui->gfx     = init_gfx(client->ui);
+    client_t *client = init_client();
+    client->ui = init_ui(client);
     client->ui->console = init_console(client->ui, "client");
-    client->ui->input   = init_input(client->ui);
 
     time_delta(0);
 

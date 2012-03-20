@@ -4,10 +4,11 @@
 
 #include "src/lib/entity.h"
 
-void
-init_entity(entity_t **e)
+entity_t *
+init_entity()
 {
-    *e = calloc(1, sizeof(entity_t));
+    entity_t *e = calloc(1, sizeof(entity_t));
+    return e;
 }
 
 void

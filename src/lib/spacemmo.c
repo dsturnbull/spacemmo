@@ -15,6 +15,7 @@ init_spacemmo()
 double
 time_delta(timer_t timer)
 {
+    // TODO just use kevent
     if (!timers[timer]) {
         timers[timer] = malloc(sizeof(struct timeval));
         gettimeofday(timers[timer], NULL);

@@ -17,7 +17,7 @@ init_skybox(char *fn)
     glBindTexture(GL_TEXTURE_2D, skybox[id]);
     png_t *png;
 
-    if (!load_png(&png, "space.png")) {
+    if (!load_png(&png, fn)) {
         fprintf(stderr, "can't load skybox\n");
         return;
     }

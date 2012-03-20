@@ -11,7 +11,7 @@ struct entity_st {
     bool dead;
 };
 
-void init_entity(entity_t **);
+entity_t * init_entity();
 void update_entity(entity_t *, double);
 void update_entity_state(entity_t *, entity_t *);
 

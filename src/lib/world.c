@@ -7,13 +7,14 @@
 #include "src/lib/entity.h"
 #include "src/lib/world.h"
 
-void
-init_world(world_t **world)
+world_t *
+init_world()
 {
-    *world = calloc(1, sizeof(world_t));
-    (*world)->entities_size = 1024;
-    (*world)->entities = calloc(1024, sizeof(entity_t *));
-    (*world)->entity_count = 0;
+    world_t *world = calloc(1, sizeof(world_t));
+    world->entities_size = 1024;
+    world->entities = calloc(1024, sizeof(entity_t *));
+    world->entity_count = 0;
+    return world;
 }
 
 void

@@ -11,8 +11,7 @@ main(int argc, char *argv[])
     init_world(&server->world);
 
     /*
-    entity_t *e;
-    init_entity(&e);
+    entity_t *e = init_entity();
     e->id = 1;
     e->vel.x = 1;
     add_entity(server->world, e);

@@ -10,7 +10,7 @@ load_png(png_t **pngp, char *fn)
     FILE *fp;
 
     if ((fp = fopen(fn, "r")) == NULL) {
-        fprintf(stderr, "can't open %s", fn);
+        fprintf(stderr, "can't open %s\n", fn);
         return false;
     }
 

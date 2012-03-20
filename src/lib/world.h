@@ -9,7 +9,7 @@ struct world_st {
     entity_t **entities;
 };
 
-void init_world(world_t **);
+world_t * init_world();
 void update_world(world_t *, double dt);
 bool add_entity(world_t *, entity_t *);
 bool remove_entity(world_t *, entity_t *);

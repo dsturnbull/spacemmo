@@ -9,6 +9,33 @@
 #include "src/lib/ui/gfx.h"
 #include "src/lib/ui/input.h"
 
+/*
+bool *keys = client->ui->input->keys;
+float thrust_amt = 0.1;
+vec3f *acc = &client->entity->acc;
+
+if (keys['w'])
+    acc->z += thrust_amt;
+
+if (keys['s'])
+    acc->z -= thrust_amt;
+
+if (keys['a'])
+    acc->x -= thrust_amt;
+
+if (keys['d'])
+    acc->x += thrust_amt;
+
+if (keys['q'])
+    acc->y += thrust_amt;
+
+if (keys['z'])
+    acc->y -= thrust_amt;
+
+if (keys[' '])
+    acc->x = acc->y = acc->z = 0.0;
+*/
+
 input_t *
 init_input(ui_t *ui)
 {
@@ -21,6 +48,7 @@ int
 handle_mouse(input_t *input, AG_DriverEvent *ev)
 {
     int x, y;
+    struct ag_mouse *mouse = input->ui->gfx->drv->mouse;
 
     switch (ev->type) {
         case AG_DRIVER_MOUSE_BUTTON_DOWN:
@@ -29,9 +57,14 @@ handle_mouse(input_t *input, AG_DriverEvent *ev)
             return 1;
 
         default:
-            printf("%i %i\n", ev->data.motion.x, ev->data.motion.y);
-            input->ui->gfx->eye.x = ev->data.motion.x;
-            input->ui->gfx->eye.y = ev->data.motion.y;
+            //if (mouse->x == 0)
+            //    SDL_WarpMouse(input->ui->gfx->w, mouse->y);
+
+            //if (mouse->y == 0)
+            //    SDL_WarpMouse(mouse->x, input->ui->gfx->h);
+
+            input->ui->gfx->tgt.x += mouse->xRel;
+            input->ui->gfx->tgt.y += mouse->yRel;
             break;
     }
 
@@ -42,59 +75,24 @@ int
 handle_keypress(input_t *input, AG_DriverEvent *ev)
 {
     vec3f *acc = &input->ui->client->entity->acc;
-    float thrust_amt = 0.1;
+    float thrust_amt = 1;
 
     switch (ev->type) {
         case AG_DRIVER_KEY_DOWN:
+            input->keys[ev->data.key.ks] = true;
+
             switch (ev->data.key.ks) {
                 case 27:
                     input->ui->client->quit = true;
                     return 1;
 
-                // up
-                case 'q':
-                    if (input->ui->gfx->drv->kbd->modState == AG_KEYMOD_LMETA) {
-                        input->ui->client->quit = true;
-                        return 1;
-                    }
-
-                    acc->y += thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
-                // down
-                case 'z':
-                    acc->y -= thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
-                // right
-                case 'd':
-                    acc->x += thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
-                // left
-                case 'a':
-                    acc->x -= thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
-                // forward
-                case 'w':
-                    acc->z += thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
-                // back
-                case 's':
-                    acc->z -= thrust_amt;
-                    client_send(input->ui->client, P_ENTITY_UPDATE_REQUEST);
-                    break;
-
                 default:
                     break;
             }
+            break;
+
+        case AG_DRIVER_KEY_UP:
+            input->keys[ev->data.key.ks] = false;
             break;
 
         default:

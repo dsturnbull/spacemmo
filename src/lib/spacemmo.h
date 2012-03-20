@@ -64,7 +64,8 @@ struct entity_update_request_packet_t;
 typedef struct entity_update_request_packet_st entity_update_request_packet_t;
 
 struct entity_update_response_packet_t;
-typedef struct entity_update_response_packet_st entity_update_response_packet_t;
+typedef struct entity_update_response_packet_st
+    entity_update_response_packet_t;
 
 typedef struct {
     double x, y, z;

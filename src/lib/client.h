@@ -16,6 +16,7 @@
 struct client_st {
     bool quit;
     client_id_t id;
+    server_t *server;
     server_conn_t *server_conn;
     struct timeval t;
     entity_t *entity;
@@ -43,7 +44,8 @@ void receive_login_response(client_t *, login_response_packet_t *);
 void send_entity_request(client_t *, entity_id_t);
 void receive_entity_response(client_t *, entity_response_packet_t *);
 void send_entity_update_request(client_t *);
-void receive_entity_update_response(client_t *, entity_update_response_packet_t *);
+void receive_entity_update_response(client_t *, 
+        entity_update_response_packet_t *);
 
 #endif
 

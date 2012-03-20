@@ -1,6 +1,8 @@
 #ifndef __src_lib_ui_input_h
 #define __src_lib_ui_input_h
 
+#include <stdbool.h>
+
 #include <agar/core.h>
 #include <agar/gui.h>
 
@@ -8,6 +10,7 @@
 
 struct input_st {
     ui_t *ui;
+    bool keys[255];
 };
 
 input_t * init_input(ui_t *);
