@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <ruby/ruby.h>
 
 #include "src/lib/client.h"
 #include "src/lib/entity.h"
@@ -34,73 +33,7 @@ init_console(ui_t *ui, char *name)
 
     console->t = tok_init(NULL);
 
-    init_ruby_console(console);
-
     return console;
-}
-
-void
-init_ruby_console(console_t *console)
-{
-	ruby_init();
-	ruby_init_loadpath();
-
-	VALUE kls;
-    
-    kls = rb_define_class("Client", rb_cObject);
-    rb_define_module_function(kls, "status", spacemmo_client_status, 0);
-    rb_define_module_function(kls, "entity", spacemmo_client_entity, 0);
-
-	kls = rb_define_class("Entity", rb_cObject);
-    rb_define_method(kls, "initialize", spacemmo_entity_initialize,  0);
-    rb_define_module_function(kls, "status", spacemmo_entity_status, 0);
-    rb_define_module_function(kls, "thrust", spacemmo_entity_thrust, 3);
-
-	kls = rb_define_class("World", rb_cObject);
-}
-
-VALUE
-spacemmo_client_status(VALUE self)
-{
-    console_t *console = (console_t *)rb_gv_get("CONSOLE");
-    entity_t *e = console->ui->client->entity;
-    printf("pos: %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
-    printf("vel: %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
-    printf("acc: %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
-    return Qnil;
-}
-
-VALUE
-spacemmo_client_entity(VALUE self)
-{
-    return Qnil;
-}
-
-VALUE spacemmo_client_set_thrust(VALUE self, VALUE value, int offset)
-{
-    console_t *console = (console_t *)rb_gv_get("CONSOLE");
-    entity_t *e = console->ui->client->entity;
-    float *acc = &e->acc.x + offset;
-    *acc = NUM2DBL(value);
-    return self;
-}
-
-VALUE
-spacemmo_client_set_x(VALUE self, VALUE value)
-{
-    return spacemmo_client_set_thrust(self, value, 0);
-}
-
-VALUE
-spacemmo_client_set_y(VALUE self, VALUE value)
-{
-    return spacemmo_client_set_thrust(self, value, 1);
-}
-
-VALUE
-spacemmo_client_set_z(VALUE self, VALUE value)
-{
-    return spacemmo_client_set_thrust(self, value, 2);
 }
 
 char *
@@ -135,11 +68,75 @@ process_input(console_t *console)
         line = strsep(&line, "\n");
         history(console->history, &console->ev, H_ENTER, buf);
 
-        rb_gv_set("CONSOLE", (VALUE)console);
-        rb_eval_string(line);
+        int argc;
+        char **argv;
+
+        tok_reset(console->t);
+        int result = tok_str(console->t, line, &argc, (const char ***)&argv);
+        const char *str = argv[0];
+        cmd_t cmd = lookup(str);
+
+        switch (cmd) {
+            case CMD_NOTFOUND:
+                fprintf(stderr, "%s not found\n", str);
+                break;
+
+            case CMD_STATUS:
+                cmd_status(console, argc, argv);
+                break;
+
+            case CMD_SCAN:
+                cmd_scan(console, argc, argv);
+                break;
+
+            case CMD_THRUST:
+                cmd_thrust(console, argc, argv);
+                break;
+
+            case CMD_QUIT:
+                console->ui->client->quit = true;
+                break;
+        }
     }
 
     console->ui->client->quit = true;
+}
+
+cmd_t
+lookup(const char *str)
+{
+    int cmd_num = sizeof(cmds) / sizeof(*cmds);
+
+    for (int i = 0; i < cmd_num; i++)
+        if (strncmp(str, cmds[i], strlen(cmds[i])) == 0)
+            return (cmd_t)i + 1;
+
+    return CMD_NOTFOUND;
+}
+
+void
+cmd_status(console_t *console, int argc, char *argv[])
+{
+    entity_t *e;
+    if ((e = console->ui->client->entity) != NULL) {
+        fprintf(stderr, "pos %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
+        fprintf(stderr, "vel %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
+        fprintf(stderr, "acc %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
+    }
+}
+
+void
+cmd_scan(console_t *console, int argc, char *argv[])
+{
+    printf("hi\n");
+}
+
+void
+cmd_thrust(console_t *console, int argc, char *argv[])
+{
+    int ch;
+
+    //while ((ch = getopt(
 }
 
 void
@@ -149,7 +146,6 @@ shutdown_console(console_t *console)
     history_end(console->history);
     tok_end(console->t);
     el_end(console->el);
-	ruby_finalize();
     free(console);
 }
 

@@ -1,4 +1,52 @@
-server
+client_t
+        entity_t entity
+                entity_id_t id
+                vec3f pos
+                vec3f vel
+                vec3f acc
 
-client
+        server_t server
+                client_t clients[]
+                world_t world
+                        system_t systems[]
+                                entity_t entities[]
+
+        ui_t ui
+                gfx_t gfx
+                console_t console
+                input_t input
+
+        client_loop()
+                update_client(dt)
+                        update_server(dt)
+                                update_world(dt)
+                                        foreach entities:
+                                                update_entity(dt)
+
+                update_gfx(dt)
+
+                send_login_request(username, password)
+
+                handle_server_response(packet)
+                        handle_login_success_response(id)
+                                client.id = id
+                        handle_login_failure_response()
+                        handle_entity_request(entity)
+                                if (entity->id == client->id)
+                                        client->entity = entity
+                                add_entity(world, entity)
+                                send_entity_response()
+
+        server_loop()
+                update_server(dt)
+                handle_client_request(packet)
+                        handle_login_request(username, password)
+                                if (auth(username, password))
+                                        client = init_client()
+                                        client->sock = sock
+                                        client->entity = init_entity()
+                                        send_login_success_response(e.id)
+                                        send_entity_request(entity)
+                                else
+                                        send_login_failure_response()
 

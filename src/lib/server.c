@@ -17,152 +17,136 @@
 #include "src/lib/world.h"
 #include "src/lib/net.h"
 
-void
-serve(server_t *server, char *addr, unsigned short port)
+server_t *
+init_server()
 {
-    int sock = get_socket(addr, port);
-    struct kevent ke;
-    int kq;
-    char buf[1024];
+    server_t *server = calloc(1, sizeof(server_t));
+    server->clients = calloc(16, sizeof(client_conn_t));
+    server->client_count = 16;
+    server->world = init_world();
+    server->sock = -1;
+    return server;
+}
 
+void
+init_server_kqueue(server_t *server)
+{
     // init kqueue
-    if ((kq = kqueue()) == -1)
+    if ((server->kq = kqueue()) == -1)
         err(EX_UNAVAILABLE, "kqueue");
 
+    memset(&server->ke, 0, sizeof(struct kevent));
+
     // listen for events on socket
-    memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, sock, EVFILT_READ, EV_ADD, 0, LISTEN_BACKLOG, NULL);
+    if (server->host && server->port) {
+        server->sock = get_socket(server->host, server->port);
+        EV_SET(&server->ke, server->sock, EVFILT_READ, EV_ADD, 0,
+                LISTEN_BACKLOG, NULL);
+    }
+
+    // register game update timer
+    memset(&server->ke, 0, sizeof(struct kevent));
+    EV_SET(&server->ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
+            1000 * 1000 / SV_TICK_HZ, NULL);
+
+    if (kevent(server->kq, &server->ke, 1, NULL, 0, NULL) == -1)
+        err(EX_UNAVAILABLE, "set game update kevent");
 
     // specify kqueue update timeout
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 1000 * 1000 * 1000 / SV_UPDATE_HZ;
 
-    if (kevent(kq, &ke, 1, NULL, 0, &ts) == -1)
-        err(EX_UNAVAILABLE, "set kevent");
+    if (kevent(server->kq, &server->ke, 1, NULL, 0, &ts) == -1)
+        err(EX_UNAVAILABLE, "set update timeout kevent");
+}
 
-    // register game update timer
-    memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
-            1000 * 1000 / SV_TICK_HZ, NULL);
+void
+server_loop(server_t *server)
+{
+    while (true)
+        handle_server_events(server);
+}
 
-    if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
-        err(EX_UNAVAILABLE, "set kevent");
-
+void
+handle_server_events(server_t *server)
+{
     // respond to events
-    while (true) {
-        memset(&ke, 0, sizeof(ke));
-        if (kevent(kq, NULL, 0, &ke, 1, NULL) <= 0)
-            err(EX_UNAVAILABLE, "kevent");
+    memset(&server->ke, 0, sizeof(server->ke));
+    if (kevent(server->kq, NULL, 0, &server->ke, 1, NULL) <= 0)
+        err(EX_UNAVAILABLE, "handle_server_events");
 
-        if (ke.ident == (uintptr_t)sock) {
-            // client connection
-            int cl_sock;
-            struct sockaddr_in c;
-            socklen_t len;
+    if (server->ke.ident == (uintptr_t)server->sock) {
+        // client connection
+        int cl_sock;
+        struct sockaddr_in c;
+        socklen_t len;
 
-            if ((cl_sock = accept(sock, (struct sockaddr *)&c, &len)) == -1)
-                err(EX_UNAVAILABLE, "accept");
+        if ((cl_sock = accept(server->sock,
+                        (struct sockaddr *)&c, &len)) == -1)
+            err(EX_UNAVAILABLE, "accept");
 
-            // find free slot
-            int slot;
-            if ((slot = find_slot(server->clients)) < 0)
-                continue;
+        // init client
+        client_conn_t *conn = calloc(1, sizeof(client_conn_t));
+        conn->sock = cl_sock;
+        memcpy(&conn->addr, &c.sin_addr, sizeof(c.sin_addr));
+        conn->client = init_client();
+        server->clients[server->client_count++] = conn;
 
-            // init client
-            client_conn_t *conn = init_client_connection(server, cl_sock, &c);
-            conn->client = init_client();
-            server->clients[slot] = conn;
+        // listen to the client socket
+        EV_SET(&server->ke, conn->sock, EVFILT_READ, EV_ADD, 0, 0, NULL);
+        if (kevent(server->kq, &server->ke, 1, NULL, 0, NULL) == -1)
+            err(EX_UNAVAILABLE, "kevent add user");
 
-            // listen to the client socket
-            EV_SET(&ke, server->clients[slot]->sock, EVFILT_READ, EV_ADD, 0, 0,
+        fprintf(stderr, "connection from %s\n", inet_ntoa(c.sin_addr));
+    } else if (server->ke.ident == 0) {
+        // game update timer fired
+        update_server(server);
+    } else {
+        // client data
+        client_conn_t *conn = find_client(server, server->ke.ident);
+
+        // read the data
+        char buf[1024];
+        memset(&buf, 0, sizeof(buf));
+        int n = read(conn->sock, buf, sizeof(buf));
+
+        // not ready yet
+        if (n == -1)
+            return;
+
+        // EOF - disconnect user
+        if (n == 0) {
+            EV_SET(&server->ke, conn->sock, EVFILT_READ, EV_DELETE, 0, 0,
                     NULL);
-            if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
-                err(EX_UNAVAILABLE, "kevent add user");
+            if (kevent(server->kq, &server->ke, 1, 0, 0, NULL) == -1)
+                err(EX_UNAVAILABLE, "disconnect user");
 
-            fprintf(stderr, "connection from %s\n", inet_ntoa(c.sin_addr));
-        } else if (ke.ident == 0) {
-            // game update timer fired
-            update_server(server);
-        } else {
-            // client data
-            int slot;
-            if ((slot = find_client(server->clients, ke.ident)) < 0)
-                continue;
+            fprintf(stderr, "%s logged out\n", conn->client->username);
+            close(conn->sock);
 
-            // read the data
-            char buf[1024];
-            memset(&buf, 0, sizeof(buf));
-            int n = read(server->clients[slot]->sock, buf, sizeof(buf));
+            if (conn->client)
+                if (conn->client->entity)
+                    conn->client->entity->dead = true;
 
-            // not ready yet
-            if (n == -1)
-                continue;
+            free(conn);
 
-            // EOF - disconnect user
-            if (n == 0) {
-				EV_SET(&ke, server->clients[slot]->sock, EVFILT_READ,
-                        EV_DELETE, 0, 0, NULL);
-                if (kevent(kq, &ke, 1, 0, 0, NULL) == -1)
-                    err(EX_UNAVAILABLE, "disconnect user");
-
-                fprintf(stderr, "%s logged out\n",
-                        server->clients[slot]->client->username);
-                close(server->clients[slot]->sock);
-
-                if (server->clients[slot]->client) {
-                    if (server->clients[slot]->client->entity)
-                        server->clients[slot]->client->entity->dead = true;
-                    shutdown_client(server->clients[slot]->client);
-                }
-
-                free(server->clients[slot]);
-                server->clients[slot] = NULL;
-
-                continue;
-            }
-
-            // handle the data
-            server_receive(server, server->clients[slot], buf, n);
+            return;
         }
+
+        // handle the data
+        handle_client_request(server, conn, buf, n);
     }
-}
-
-int
-find_slot(client_conn_t **connections)
-{
-    int slot = -1;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (!connections[i] || !connections[i]->sock) {
-            slot = i;
-            break;
-        }
-    }
-
-    return slot;
-}
-
-int
-find_client(client_conn_t **connections, int id)
-{
-    int client = -1;
-    for (int i = 0; i < MAX_CLIENTS; i++) {
-        if (connections[i] && connections[i]->sock == id) {
-            client = i;
-            break;
-        }
-    }
-
-    return client;
 }
 
 client_conn_t *
-init_client_connection(server_t *server, int sock, struct sockaddr_in *addr)
+find_client(server_t *server, int id)
 {
-    client_conn_t *conn = malloc(sizeof(client_conn_t));
-    conn->sock = sock;
-    memcpy(&conn->addr, &addr->sin_addr, sizeof(addr->sin_addr));
-    return conn;
+    for (int i = 0; i < server->client_count; i++)
+        if (server->clients[i] && server->clients[i]->sock == id)
+            return server->clients[i];
+
+    return NULL;
 }
 
 void
@@ -177,14 +161,8 @@ update_server(server_t *server)
         (double)t1.tv_usec / 1000 / 1000;
     double dt = t1f - t0f;
 
-    if (t0f > 0) {
+    if (t0f > 0)
         update_world(server->world, dt);
-
-        foreach_entity(server->world, ^(entity_t *e) {
-            foreach_client(server, ^(client_conn_t *client) {
-            });
-        });
-    }
 
     gettimeofday(&server->t, NULL);
 }
@@ -226,7 +204,7 @@ get_socket(char *addr, unsigned short port)
 }
 
 void
-server_receive(server_t *sv, client_conn_t *cl_conn, char *buf, int len)
+handle_client_request(server_t *sv, client_conn_t *cl, char *buf, int len)
 {
     packet_t *packet = (packet_t *)buf;
 

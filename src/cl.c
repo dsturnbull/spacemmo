@@ -4,6 +4,7 @@
 #include <dispatch/dispatch.h>
 
 #include "src/lib/client.h"
+#include "src/lib/server.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 #include "src/lib/ui/gfx.h"
@@ -15,6 +16,7 @@ main(int argc, char *argv[])
     init_spacemmo();
 
     client_t *client    = init_client();
+
     client->ui          = init_ui(client);
     client->ui->gfx     = init_gfx(client->ui);
     client->ui->console = init_console(client->ui, "client");
@@ -27,6 +29,9 @@ main(int argc, char *argv[])
 
     //client->username = "david";
     //client_send(client, P_LOGIN_REQUEST);
+
+    init_client_kqueue(client);
+    init_server_kqueue(client->server);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

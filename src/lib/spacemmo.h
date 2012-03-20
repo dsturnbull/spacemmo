@@ -8,8 +8,6 @@ typedef enum packet_e {
     P_LOGIN_RESPONSE,
     P_ENTITY_REQUEST,
     P_ENTITY_RESPONSE,
-    P_ENTITY_UPDATE_REQUEST,
-    P_ENTITY_UPDATE_RESPONSE,
 } packet_e;
 
 typedef long client_id_t;
@@ -60,24 +58,9 @@ typedef struct entity_request_packet_st entity_request_packet_t;
 struct entity_response_packet_t;
 typedef struct entity_response_packet_st entity_response_packet_t;
 
-struct entity_update_request_packet_t;
-typedef struct entity_update_request_packet_st entity_update_request_packet_t;
-
-struct entity_update_response_packet_t;
-typedef struct entity_update_response_packet_st
-    entity_update_response_packet_t;
-
-typedef struct {
-    double x, y, z;
-} vec3d;
-
 typedef struct {
     float x, y, z;
 } vec3f;
-
-typedef struct {
-    int x, y, z;
-} vec3i;
 
 typedef uint8_t timer_t;
 

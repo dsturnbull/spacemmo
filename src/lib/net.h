@@ -12,37 +12,32 @@ struct packet_st {
 };
 
 struct login_request_packet_st {
-    packet_e type;
-    size_t len;
+    packet_t packet;
     char username[60];
 };
 
 struct login_response_packet_st {
-    packet_e type;
-    size_t len;
-    entity_t entity;
+    packet_t packet;
+    entity_id_t id;
 };
 
 struct entity_request_packet_st {
-    packet_e type;
-    size_t len;
+    packet_t packet;
+    entity_id_t id;
 };
 
 struct entity_response_packet_st {
-    packet_e type;
-    size_t len;
+    packet_t packet;
     entity_t entity;
 };
 
 struct entity_update_request_packet_st {
-    packet_e type;
-    size_t len;
+    packet_t packet;
     entity_t entity;
 };
 
 struct entity_update_response_packet_st {
-    packet_e type;
-    size_t len;
+    packet_t packet;
 };
 
 void net_send(int, char *, int);

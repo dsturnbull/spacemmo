@@ -8,43 +8,43 @@
 #define TICK_TIMER      0
 #define FRAME_TIMER     1
 
-#include <stdbool.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
+#include <sys/event.h>
 #include <sys/time.h>
+
 #include "src/lib/spacemmo.h"
 
 struct client_st {
-    bool quit;
-    client_id_t id;
+    entity_t *entity;
+    ui_t *ui;
     server_t *server;
     server_conn_t *server_conn;
-    struct timeval t;
-    entity_t *entity;
+
+    client_id_t id;
     char *username;
-    struct ui_st *ui;
+    bool quit;
+
+    struct timeval t;
+
+    struct kevent ke;
+    int kq;
+    int server_sock;
 };
 
-struct client_conn_st {
+struct server_conn_st {
     int sock;
     struct in_addr addr;
-    struct client_st *client;
 };
 
 client_t * init_client();
-void shutdown_client(client_t *);
+void init_client_kqueue(client_t *);
+void client_loop(client_t *);
+void handle_client_events(client_t *);
 void update_client(client_t *);
 
-void client_loop(client_t *);
 bool connect_server(server_conn_t **, char *, unsigned short);
-void client_receive(client_t *, char *, int);
-
-void send_login_request(client_t *);
-void receive_login_response(client_t *, login_response_packet_t *);
-void send_entity_request(client_t *, entity_id_t);
-void receive_entity_response(client_t *, entity_response_packet_t *);
-void send_entity_update_request(client_t *);
-void receive_entity_update_response(client_t *, 
-        entity_update_response_packet_t *);
+void handle_server_response(client_t *, char *, int);
 
 #endif
 

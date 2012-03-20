@@ -16,15 +16,27 @@ struct console_st {
     Tokenizer *t;
 };
 
+typedef enum cmd_e {
+    CMD_NOTFOUND,
+    CMD_STATUS,
+    CMD_SCAN,
+    CMD_THRUST,
+    CMD_QUIT,
+} cmd_t;
+
+static const char *cmds[] = {
+    "status",
+    "scan",
+    "thrust",
+    "quit",
+};
+
 console_t * init_console(ui_t *, char *);
 
-void init_ruby_console(console_t *);
-VALUE spacemmo_client_status(VALUE);
-VALUE spacemmo_client_entity(VALUE);
-
-VALUE spacemmo_entity_initialize(VALUE);
-VALUE spacemmo_entity_status(VALUE);
-VALUE spacemmo_entity_thrust(VALUE, VALUE, int);
+cmd_t lookup(const char *);
+void cmd_status(console_t *, int, char **);
+void cmd_scan(console_t *, int, char **);
+void cmd_thrust(console_t *, int, char **);
 
 char * prompt(EditLine *);
 void update_console(console_t *, double);

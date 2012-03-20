@@ -25,41 +25,21 @@ client_t *
 init_client()
 {
     client_t *client = calloc(1, sizeof(client_t));
-    client->server = calloc(1, sizeof(server_t));
-    client->server->world = init_world();
-    client->entity = calloc(1, sizeof(entity_t));
-    add_entity(client->server->world, client->entity);
+    client->server = init_server();
     return client;
 }
 
 void
-shutdown_client(client_t *client)
+init_client_kqueue(client_t *client)
 {
-    free(client->entity);
-    free(client);
-}
-
-void
-update_client(client_t *client)
-{
-    update_server(client->server);
-}
-
-void
-client_loop(client_t *client)
-{
-    struct kevent ke;
-    int kq;
-    int server_sock;
-
     // init kqueue
-    if ((kq = kqueue()) == -1)
+    if ((client->kq = kqueue()) == -1)
         err(EX_UNAVAILABLE, "kqueue");
 
     // listen on server socket
     if (client->server_conn) {
-        memset(&ke, 0, sizeof(struct kevent));
-        EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_ADD, 0,
+        memset(&client->ke, 0, sizeof(struct kevent));
+        EV_SET(&client->ke, client->server_conn->sock, EVFILT_READ, EV_ADD, 0,
                 LISTEN_BACKLOG, NULL);
 
         // specify kqueue update timeout
@@ -67,70 +47,87 @@ client_loop(client_t *client)
         ts.tv_sec = 0;
         ts.tv_nsec = 25 * 1000 * 1000;
 
-        if (kevent(kq, &ke, 1, NULL, 0, &ts) == -1)
-            err(EX_UNAVAILABLE, "set kevent");
+        if (kevent(client->kq, &client->ke, 1, NULL, 0, &ts) == -1)
+            err(EX_UNAVAILABLE, "set server listen kevent");
     }
 
     // register game update timer
-    memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
+    memset(&client->ke, 0, sizeof(struct kevent));
+    EV_SET(&client->ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
             1000 * 1000 / SV_TICK_HZ, NULL);
 
-    if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
-        err(EX_UNAVAILABLE, "set kevent");
+    if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
+        err(EX_UNAVAILABLE, "set game update kevent");
 
     // register gfx update timer
-    memset(&ke, 0, sizeof(struct kevent));
-    EV_SET(&ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
+    memset(&client->ke, 0, sizeof(struct kevent));
+    EV_SET(&client->ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
             1000 * 1000 / FRAMERATE_HZ, NULL);
 
-    if (kevent(kq, &ke, 1, NULL, 0, NULL) == -1)
-        err(EX_UNAVAILABLE, "set kevent");
+    if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
+        err(EX_UNAVAILABLE, "set gfx update kevent");
+}
 
-    while (true) {
-        memset(&ke, 0, sizeof(ke));
-        if (kevent(kq, NULL, 0, &ke, 1, NULL) <= 0)
-            continue;
+void
+client_loop(client_t *client)
+{
+    while (!client->quit) {
+        handle_client_events(client);
+        handle_server_events(client->server);
+    }
+}
 
-        if (client->server_conn &&
-                ke.ident == (uintptr_t)client->server_conn->sock) {
-            // traffic on server socket
-            struct sockaddr_in s;
-            socklen_t len;
-            char buf[1024];
+void
+handle_client_events(client_t *client)
+{
+    memset(&client->ke, 0, sizeof(client->ke));
+    if (kevent(client->kq, NULL, 0, &client->ke, 1, NULL) <= 0)
+        return;
 
-            int n = read(client->server_conn->sock, buf, sizeof(buf));
+    if (client->server_conn &&
+            client->ke.ident == (uintptr_t)client->server_conn->sock) {
+        // traffic on server socket
+        struct sockaddr_in s;
+        socklen_t len;
+        char buf[1024];
 
-            // not ready yet
-            if (n == -1)
-                continue;
+        int n = read(client->server_conn->sock, buf, sizeof(buf));
 
-            // disconnect
-            if (n == 0) {
-				EV_SET(&ke, client->server_conn->sock, EVFILT_READ, EV_DELETE,
-                        0, 0, NULL);
-                if (kevent(kq, &ke, 1, 0, 0, NULL) == -1)
-                    err(EX_UNAVAILABLE, "disconnect user");
+        // not ready yet
+        if (n == -1)
+            return;
 
-                close(client->server_conn->sock);
-                client->server_conn->sock = 0;
+        // disconnect
+        if (n == 0) {
+            EV_SET(&client->ke, client->server_conn->sock, EVFILT_READ,
+                    EV_DELETE, 0, 0, NULL);
+            if (kevent(client->kq, &client->ke, 1, 0, 0, NULL) == -1)
+                err(EX_UNAVAILABLE, "disconnect user");
 
-                continue;
-            }
+            close(client->server_conn->sock);
+            client->server_conn->sock = 0;
 
-            // handle packet
-            client_receive(client, buf, n);
-        } else if (ke.ident == 0) {
-            // game update timer fired
-            update_client(client);
-        } else if (ke.ident == 1) {
-            // gfx fired
-            update_ui(client->ui, time_delta(FRAME_TIMER));
+            return;
         }
 
-        if (client->quit)
-            return;
+        // handle packet
+        handle_server_response(client, buf, n);
+    } else if (client->ke.ident == 0) {
+        // game update timer fired
+        update_client(client);
+    } else if (client->ke.ident == 1) {
+        // gfx fired
+        update_ui(client->ui, time_delta(FRAME_TIMER));
     }
+
+    if (client->quit)
+        return;
+}
+
+void
+update_client(client_t *client)
+{
+    update_server(client->server);
 }
 
 bool
@@ -160,7 +157,7 @@ connect_server(server_conn_t **s, char *addr, unsigned short port)
 }
 
 void
-client_receive(client_t *server, char *buf, int len)
+handle_server_response(client_t *client, char *buf, int len)
 {
     int consumed;
     packet_t *packet = (packet_t *)buf;
@@ -173,6 +170,6 @@ client_receive(client_t *server, char *buf, int len)
     }
 
     if (len - consumed > 0)
-        client_receive(server, buf + consumed, len - consumed);
+        handle_server_response(client, buf + consumed, len - consumed);
 }
 
