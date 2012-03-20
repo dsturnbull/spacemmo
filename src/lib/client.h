@@ -36,7 +36,6 @@ void update_client(client_t *);
 
 void client_loop(client_t *);
 bool connect_server(server_conn_t **, char *, unsigned short);
-void client_send(client_t *, packet_e);
 void client_receive(client_t *, char *, int);
 
 void send_login_request(client_t *);

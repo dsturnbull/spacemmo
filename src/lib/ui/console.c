@@ -4,6 +4,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "src/lib/client.h"
 #include "src/lib/entity.h"
 #include "src/lib/ui.h"
@@ -16,7 +20,8 @@ init_console(ui_t *ui, char *name)
     console_t *console = calloc(1, sizeof(console_t));
     console->ui = ui;
 
-    asprintf(&console->hist_file, "%s/.spacemmo_%s_history", getenv("HOME"), name);
+    asprintf(&console->hist_file, "%s/.spacemmo_%s_history", getenv("HOME"),
+            name);
     asprintf(&console->prompt, "%s> ", name);
 
     console->el = el_init(name, stdin, stdout, stderr);
@@ -32,7 +37,31 @@ init_console(ui_t *ui, char *name)
 
     console->t = tok_init(NULL);
 
+    console->lua = lua_open();
+    init_console_lua(console);
+
     return console;
+}
+
+void
+init_console_lua(console_t *console)
+{
+    lua_State *L = console->lua;
+    luaL_openlibs(console->lua);
+
+    luaL_openlib(L, "client", client_lib, 0);
+
+    lua_pushlightuserdata(L, (void *)console->ui->client->entity);
+    lua_setglobal(L, "entity");
+}
+
+int client_lib_status(lua_State *L) {
+    lua_getglobal(L, "entity");
+    entity_t *e = lua_touserdata(L, 1);
+    printf("pos: %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
+    printf("vel: %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
+    printf("acc: %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
+    return 0;
 }
 
 char *
@@ -67,30 +96,9 @@ process_input(console_t *console)
         line = strsep(&line, "\n");
         history(console->history, &console->ev, H_ENTER, buf);
 
-        int argc;
-        char **argv;
-
-        tok_reset(console->t);
-        int result = tok_str(console->t, line, &argc, (const char ***)&argv);
-        const char *str = argv[0];
-        cmd_t cmd = lookup(str);
-
-        switch (cmd) {
-            case CMD_NOTFOUND:
-                fprintf(stderr, "%s not found\n", str);
-                break;
-
-            case CMD_STATUS:
-                cmd_status(console, argc, argv);
-                break;
-
-            case CMD_THRUST:
-                cmd_thrust(console, argc, argv);
-                break;
-
-            case CMD_QUIT:
-                console->ui->client->quit = true;
-                break;
+        if (luaL_dostring(console->lua, line) != 0) {
+            fprintf(stderr, "%s\n", lua_tostring(console->lua, -1));
+            lua_pop(console->lua, 1);
         }
     }
 
@@ -104,37 +112,7 @@ shutdown_console(console_t *console)
     history_end(console->history);
     tok_end(console->t);
     el_end(console->el);
+    lua_close(console->lua);
     free(console);
-}
-
-cmd_t
-lookup(const char *str)
-{
-    int cmd_num = sizeof(cmds) / sizeof(*cmds);
-
-    for (int i = 0; i < cmd_num; i++)
-        if (strncmp(str, cmds[i], strlen(cmds[i])) == 0)
-            return (cmd_t)i + 1;
-
-    return CMD_NOTFOUND;
-}
-
-void
-cmd_status(console_t *console, int argc, char *argv[])
-{
-    entity_t *e;
-    if ((e = console->ui->client->entity) != NULL) {
-        fprintf(stderr, "pos %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
-        fprintf(stderr, "vel %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
-        fprintf(stderr, "acc %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
-    }
-}
-
-void
-cmd_thrust(console_t *console, int argc, char *argv[])
-{
-    int ch;
-
-    //while ((ch = getopt(
 }
 

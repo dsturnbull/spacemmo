@@ -2,6 +2,11 @@
 #define __src_lib_ui_console_h
 
 #include <histedit.h>
+
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+
 #include "src/lib/spacemmo.h"
 
 struct console_st {
@@ -12,30 +17,23 @@ struct console_st {
     char *hist_file;
     EditLine *el;
     Tokenizer *t;
+    lua_State *lua;
 };
 
-typedef enum cmd_e {
-    CMD_NOTFOUND,
-    CMD_STATUS,
-    CMD_THRUST,
-    CMD_QUIT,
-} cmd_t;
+int client_lib___tostring(lua_State *);
+int client_lib_status(lua_State *);
 
-static const char *cmds[] = {
-    "status",
-    "thrust",
-    "quit",
+static const struct luaL_reg client_lib[] = {
+    {"status", client_lib_status},
+    {NULL, NULL}
 };
 
 console_t * init_console(ui_t *, char *);
+void init_console_lua(console_t *);
 char * prompt(EditLine *);
 void update_console(console_t *, double);
 void process_input(console_t *);
 void shutdown_console(console_t *);
-cmd_t lookup(const char *);
-
-void cmd_status(console_t *, int, char **);
-void cmd_thrust(console_t *, int, char **);
 
 #endif
 
