@@ -5,10 +5,13 @@
 #include <unistd.h>
 
 #include "src/lib/client.h"
-#include "src/lib/entity.h"
+#include "src/lib/server.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
-#include "src/lib/ui/console.h"
+#include "src/lib/world.h"
+#include "src/lib/cluster.h"
+#include "src/lib/system.h"
+#include "src/lib/entity.h"
 
 console_t *
 init_console(ui_t *ui, char *name)
@@ -81,6 +84,10 @@ process_input(console_t *console)
                 fprintf(stderr, "%s not found\n", str);
                 break;
 
+            case CMD_BECOME:
+                cmd_become(console, argc, argv);
+                break;
+
             case CMD_STATUS:
                 cmd_status(console, argc, argv);
                 break;
@@ -115,28 +122,65 @@ lookup(const char *str)
 }
 
 void
+cmd_become(console_t *console, int argc, char *argv[])
+{
+    world_t *world = console->ui->client->server->world;
+    entity_id_t id = atol(argv[1]);
+    console->ui->client->entity = find_entity(world, id);
+}
+
+void
 cmd_status(console_t *console, int argc, char *argv[])
 {
     entity_t *e;
     if ((e = console->ui->client->entity) != NULL) {
-        fprintf(stderr, "pos %f %f %f\n", e->pos.x, e->pos.y, e->pos.z);
-        fprintf(stderr, "vel %f %f %f\n", e->vel.x, e->vel.y, e->vel.z);
-        fprintf(stderr, "acc %f %f %f\n", e->acc.x, e->acc.y, e->acc.z);
+        fprintf(stderr, "pos %g %g %g\n", e->pos.x, e->pos.y, e->pos.z);
+        fprintf(stderr, "vel %g %g %g\n", e->vel.x, e->vel.y, e->vel.z);
+        fprintf(stderr, "acc %g %g %g\n", e->acc.x, e->acc.y, e->acc.z);
     }
 }
 
 void
 cmd_scan(console_t *console, int argc, char *argv[])
 {
-    printf("hi\n");
+    world_t *world = console->ui->client->server->world;
+
+    foreach_cluster(world, ^(cluster_t *cluster) {
+        foreach_system(cluster, ^(system_t *system) {
+            foreach_entity(system, ^(entity_t *entity) {
+                fprintf(stderr, "ent %lu \n", entity->id);
+                fprintf(stderr, "\tpos %g %g %g\n",
+                    entity->pos.x, entity->pos.y, entity->pos.z);
+                fprintf(stderr, "\tvel %g %g %g\n",
+                    entity->vel.x, entity->vel.y, entity->vel.z);
+                fprintf(stderr, "\tacc %g %g %g\n",
+                    entity->acc.x, entity->acc.y, entity->acc.z);
+            });
+        });
+    });
 }
 
 void
 cmd_thrust(console_t *console, int argc, char *argv[])
 {
     int ch;
+    entity_id_t id;
+    world_t *world = console->ui->client->server->world;
 
-    //while ((ch = getopt(
+    if (console->ui->client->entity)
+        id = console->ui->client->entity->id;
+
+    argc = 1;
+    float dax = atof(argv[argc++]);
+    float day = atof(argv[argc++]);
+    float daz = atof(argv[argc++]);
+
+    entity_t *entity;
+    if ((entity = find_entity(world, id)) != NULL) {
+        entity->acc.x = dax;
+        entity->acc.y = day;
+        entity->acc.z = daz;
+    }
 }
 
 void

@@ -18,6 +18,7 @@ struct console_st {
 
 typedef enum cmd_e {
     CMD_NOTFOUND,
+    CMD_BECOME,
     CMD_STATUS,
     CMD_SCAN,
     CMD_THRUST,
@@ -25,6 +26,7 @@ typedef enum cmd_e {
 } cmd_t;
 
 static const char *cmds[] = {
+    "become",
     "status",
     "scan",
     "thrust",
@@ -34,6 +36,7 @@ static const char *cmds[] = {
 console_t * init_console(ui_t *, char *);
 
 cmd_t lookup(const char *);
+void cmd_become(console_t *, int, char **);
 void cmd_status(console_t *, int, char **);
 void cmd_scan(console_t *, int, char **);
 void cmd_thrust(console_t *, int, char **);

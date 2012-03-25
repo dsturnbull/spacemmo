@@ -3,6 +3,10 @@
 #include <string.h>
 
 #include "src/lib/spacemmo.h"
+#include "src/lib/world.h"
+#include "src/lib/cluster.h"
+#include "src/lib/system.h"
+#include "src/lib/entity.h"
 
 struct timeval * timers[256 << (sizeof(timer_t) * 8) - 8];
 
@@ -34,5 +38,18 @@ time_delta(timer_t timer)
     memcpy(timers[timer], &t1, sizeof(struct timeval));
 
     return dt;
+}
+
+void
+init_default_world(world_t *world)
+{
+    cluster_t *local_cluster = init_cluster(world);
+
+    system_t *sol_system = init_system(local_cluster);
+
+    entity_t *sol = init_entity(sol_system);
+
+    entity_t *earth = init_entity(sol_system);
+    earth->pos.x = 1.496e9;
 }
 

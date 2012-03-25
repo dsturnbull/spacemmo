@@ -31,6 +31,15 @@ typedef struct server_conn_st server_conn_t;
 struct world_st;
 typedef struct world_st world_t;
 
+struct cluster_st;
+typedef struct cluster_st cluster_t;
+
+struct system_st;
+typedef struct system_st system_t;
+
+struct sector_st;
+typedef struct sector_st sector_t;
+
 struct entity_st;
 typedef struct entity_st entity_t;
 
@@ -59,13 +68,14 @@ struct entity_response_packet_t;
 typedef struct entity_response_packet_st entity_response_packet_t;
 
 typedef struct {
-    float x, y, z;
+    double x, y, z;
 } vec3f;
 
 typedef uint8_t timer_t;
 
 void init_spacemmo();
 double time_delta(timer_t);
+void init_default_world(world_t *);
 
 #endif
 

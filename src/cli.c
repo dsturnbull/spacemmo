@@ -28,6 +28,7 @@ main(int argc, char *argv[])
 
     init_client_kqueue(client);
     init_server_kqueue(client->server);
+    init_default_world(client->server->world);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

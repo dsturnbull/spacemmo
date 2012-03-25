@@ -3,18 +3,17 @@ CC=clang
 #OPT=-O4
 OPT=-g
 CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch-enum -Wswitch
-CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare -Wno-self-assign -Wno-unknown-pragmas
+CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare
 CFLAGS+=-std=c99
-CFLAGS+=-I. -I/usr/local/include/SDL -I/Users/david/.rvm/rubies/ruby-1.9.3-p0/include/ruby-1.9.1 
+CFLAGS+=-I. -I/usr/local/include/SDL
 CFLAGS+=$(shell pkg-config libpng --cflags)
 CFLAGS+=$(shell agar-vg-config --cflags)
 CFLAGS+=$(OPT) -mtune=native -fcommon -pipe
-CFLAGS+=-DHAVE_SYS_TIME_H=1 -DHAVE_STRUCT_TIMESPEC=1 -DHAVE_STRUCT_TIMEZONE=1
 
 LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning -dynamic -flat_namespace
 LIBTOOL_FLAGS+=-lag_core -lag_gui -lag_dev
 
-LDFLAGS+=-L. -ledit -L/usr/X11/lib -lfreetype -L/Users/david/.rvm/rubies/ruby-1.9.3-p0/lib -lruby
+LDFLAGS+=-L. -ledit -L/usr/X11/lib -lfreetype
 
 CL=client
 CL_SRCS=src/cl.c

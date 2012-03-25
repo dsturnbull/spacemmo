@@ -188,6 +188,7 @@ update_gfx(gfx_t *gfx, double dt)
                 glLoadIdentity();
 
                 // render entities
+                /*
                 world_t *world = gfx->ui->client->server->world;
                 foreach_entity(world, ^(entity_t *e) {
                     if (e != gfx->ui->client->entity) {
@@ -205,6 +206,7 @@ update_gfx(gfx_t *gfx, double dt)
                         glEnd();
                     }
                 });
+                */
             }
 
             glPopMatrix();

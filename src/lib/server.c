@@ -170,7 +170,7 @@ update_server(server_t *server)
 void
 foreach_client(server_t *server, void(^block)(client_conn_t *))
 {
-    for (int i = 0; i < MAX_CLIENTS; i++)
+    for (int i = 0; i < server->client_count; i++)
         if (server->clients[i] && server->clients[i]->sock)
             block(server->clients[i]);
 }

@@ -1,7 +1,6 @@
 #ifndef __src_lib_server_h
 #define __src_lib_server_h
 
-#define MAX_CLIENTS     24
 #define LISTEN_BACKLOG  24
 #define LISTEN_QUEUE    24
 #define SV_UPDATE_HZ    50.0f

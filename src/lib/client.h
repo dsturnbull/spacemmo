@@ -4,7 +4,6 @@
 #define LISTEN_BACKLOG  24
 #define LISTEN_QUEUE    24
 #define FRAMERATE_HZ    60
-
 #define TICK_TIMER      0
 #define FRAME_TIMER     1
 

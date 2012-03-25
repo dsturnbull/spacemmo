@@ -8,8 +8,10 @@ client_t
         server_t server
                 client_t clients[]
                 world_t world
-                        system_t systems[]
-                                entity_t entities[]
+                        cluster_t clusters[]
+                                system_t systems[]
+                                        sector_t sectors[]
+                                                entity_t entities[]
 
         ui_t ui
                 gfx_t gfx
