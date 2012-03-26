@@ -91,7 +91,6 @@ init_gfx(ui_t *ui)
     //SDL_ShowCursor(0);
 
     init_gfx_ui(gfx);
-    init_gfx_ship_ui(gfx);
 
     return gfx;
 }
@@ -117,34 +116,29 @@ init_gfx_menu(gfx_t *gfx)
 }
 
 void
-init_gfx_ship_ui(gfx_t *gfx)
+init_gfx_ship_ui(gfx_t *gfx, entity_t *entity)
 {
-    init_gfx_ship(gfx);
-    init_gfx_ship_status_window(gfx);
+    init_gfx_ship(gfx, entity);
+    init_gfx_ship_status_window(gfx, entity);
 }
 
 void
-init_gfx_ship()
+init_gfx_ship(gfx_t *gfx, entity_t *entity)
 {
     // gluCylinder(gluNewQuadric(), 2, 1, 2, 4, 4);
 }
 
 void
-init_gfx_ship_status_window(gfx_t *gfx)
+init_gfx_ship_status_window(gfx_t *gfx, entity_t *entity)
 {
     AG_Window *win = AG_WindowNew(AG_WINDOW_DIALOG);
     AG_WindowSetCaption(win, "Status");
     AG_WindowSetPosition(win, AG_WINDOW_BR, 1);
     AG_WindowSetGeometry(win, 0, 0, 200, 200);
 
-    vec3f *pos, *vel, *acc;
-
-    entity_t *e;
-
-    if ((e= gfx->ui->client->entity) != NULL)
-        pos = &e->pos, vel = &e->vel, acc = &e->acc;
-    else
-        pos = &_pos, vel = &_vel, acc = &_acc;
+    vec3f *pos = entity->pos;
+    vec3f *vel = entity->vel;
+    vec3f *acc = entity->acc;
 
     char *hint;
     char *fmt = "x:%f y:%f z:%f";
@@ -281,7 +275,7 @@ handle_event(gfx_t *gfx, AG_DriverEvent *ev)
             break;
 
         case AG_DRIVER_CLOSE:
-            gfx->ui->client->quit = true;
+            gfx->ui->input->quit = true;
             return 1;
 
         case AG_DRIVER_MOUSE_MOTION:

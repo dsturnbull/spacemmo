@@ -7,6 +7,8 @@
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
 #include "src/lib/entity.h"
+#include "src/lib/computer.h"
+#include "src/lib/ui/input.h"
 
 struct timeval * timers[256 << (sizeof(timer_t) * 8) - 8];
 
@@ -50,6 +52,8 @@ init_default_world(world_t *world)
     entity_t *sol = init_entity(sol_system);
 
     entity_t *earth = init_entity(sol_system);
-    earth->pos.x = 1.496e9;
+    earth->pos->x = 1.496e9;
+
+    entity_t *ship = init_entity(sol_system);
 }
 

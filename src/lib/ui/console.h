@@ -2,7 +2,6 @@
 #define __src_lib_ui_console_h
 
 #include <histedit.h>
-#include <ruby/ruby.h>
 
 #include "src/lib/spacemmo.h"
 

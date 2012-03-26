@@ -5,6 +5,8 @@
 
 #include "src/lib/client.h"
 #include "src/lib/server.h"
+#include "src/lib/world.h"
+#include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 #include "src/lib/ui/gfx.h"
@@ -20,7 +22,6 @@ main(int argc, char *argv[])
     client->ui          = init_ui(client);
     client->ui->gfx     = init_gfx(client->ui);
     client->ui->console = init_console(client->ui, "client");
-    client->ui->input   = init_input(client->ui);
 
     time_delta(0);
 
@@ -32,6 +33,12 @@ main(int argc, char *argv[])
 
     init_client_kqueue(client);
     init_server_kqueue(client->server);
+    init_default_world(client->server->world);
+
+    client->entity = find_entity(client->server->world, 2);
+    client->ui->input = client->entity->input;
+
+    init_gfx_ship_ui(client->ui->gfx, client->entity);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

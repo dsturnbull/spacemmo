@@ -71,7 +71,7 @@ init_client_kqueue(client_t *client)
 void
 client_loop(client_t *client)
 {
-    while (!client->quit) {
+    while (!client->ui->input->quit) {
         handle_client_events(client);
         handle_server_events(client->server);
     }
@@ -120,7 +120,7 @@ handle_client_events(client_t *client)
         update_ui(client->ui, time_delta(FRAME_TIMER));
     }
 
-    if (client->quit)
+    if (client->ui->input->quit)
         return;
 }
 

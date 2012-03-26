@@ -8,6 +8,7 @@
 #include "src/lib/server.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
+#include "src/lib/ui/input.h"
 #include "src/lib/world.h"
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
@@ -101,12 +102,12 @@ process_input(console_t *console)
                 break;
 
             case CMD_QUIT:
-                console->ui->client->quit = true;
+                console->ui->input->quit = true;
                 break;
         }
     }
 
-    console->ui->client->quit = true;
+    console->ui->input->quit = true;
 }
 
 cmd_t
@@ -134,9 +135,9 @@ cmd_status(console_t *console, int argc, char *argv[])
 {
     entity_t *e;
     if ((e = console->ui->client->entity) != NULL) {
-        fprintf(stderr, "pos %g %g %g\n", e->pos.x, e->pos.y, e->pos.z);
-        fprintf(stderr, "vel %g %g %g\n", e->vel.x, e->vel.y, e->vel.z);
-        fprintf(stderr, "acc %g %g %g\n", e->acc.x, e->acc.y, e->acc.z);
+        fprintf(stderr, "pos %g %g %g\n", e->pos->x, e->pos->y, e->pos->z);
+        fprintf(stderr, "vel %g %g %g\n", e->vel->x, e->vel->y, e->vel->z);
+        fprintf(stderr, "acc %g %g %g\n", e->acc->x, e->acc->y, e->acc->z);
     }
 }
 
@@ -150,11 +151,11 @@ cmd_scan(console_t *console, int argc, char *argv[])
             foreach_entity(system, ^(entity_t *entity) {
                 fprintf(stderr, "ent %lu \n", entity->id);
                 fprintf(stderr, "\tpos %g %g %g\n",
-                    entity->pos.x, entity->pos.y, entity->pos.z);
+                    entity->pos->x, entity->pos->y, entity->pos->z);
                 fprintf(stderr, "\tvel %g %g %g\n",
-                    entity->vel.x, entity->vel.y, entity->vel.z);
+                    entity->vel->x, entity->vel->y, entity->vel->z);
                 fprintf(stderr, "\tacc %g %g %g\n",
-                    entity->acc.x, entity->acc.y, entity->acc.z);
+                    entity->acc->x, entity->acc->y, entity->acc->z);
             });
         });
     });
@@ -177,9 +178,9 @@ cmd_thrust(console_t *console, int argc, char *argv[])
 
     entity_t *entity;
     if ((entity = find_entity(world, id)) != NULL) {
-        entity->acc.x = dax;
-        entity->acc.y = day;
-        entity->acc.z = daz;
+        entity->acc->x = dax;
+        entity->acc->y = day;
+        entity->acc->z = daz;
     }
 }
 

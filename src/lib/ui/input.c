@@ -47,6 +47,9 @@ init_input(ui_t *ui)
 int
 handle_mouse(input_t *input, AG_DriverEvent *ev)
 {
+    if (!input->ui || !input->ui->gfx)
+        return 0;
+
     int x, y;
     struct ag_mouse *mouse = input->ui->gfx->drv->mouse;
 
@@ -74,16 +77,13 @@ handle_mouse(input_t *input, AG_DriverEvent *ev)
 int
 handle_keypress(input_t *input, AG_DriverEvent *ev)
 {
-    vec3f *acc = &input->ui->client->entity->acc;
-    float thrust_amt = 1;
-
     switch (ev->type) {
         case AG_DRIVER_KEY_DOWN:
             input->keys[ev->data.key.ks] = true;
 
             switch (ev->data.key.ks) {
                 case 27:
-                    input->ui->client->quit = true;
+                    input->quit = true;
                     return 1;
 
                 default:

@@ -5,6 +5,11 @@ client_t
                 vec3f vel
                 vec3f acc
 
+                input_t input
+                system_t system
+                computer_t computer
+                        computer_id_t id
+
         server_t server
                 client_t clients[]
                 world_t world

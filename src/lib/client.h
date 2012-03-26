@@ -22,7 +22,6 @@ struct client_st {
 
     client_id_t id;
     char *username;
-    bool quit;
 
     struct timeval t;
 

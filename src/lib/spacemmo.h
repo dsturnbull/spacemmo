@@ -12,6 +12,7 @@ typedef enum packet_e {
 
 typedef long client_id_t;
 typedef long entity_id_t;
+typedef long computer_id_t;
 
 struct packet_st;
 typedef struct packet_st packet_t;
@@ -42,6 +43,9 @@ typedef struct sector_st sector_t;
 
 struct entity_st;
 typedef struct entity_st entity_t;
+
+struct computer_st;
+typedef struct computer_st computer_t;
 
 struct ui_st;
 typedef struct ui_st ui_t;

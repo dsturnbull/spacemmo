@@ -5,6 +5,7 @@
 
 #include "src/lib/client.h"
 #include "src/lib/server.h"
+#include "src/lib/world.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 
@@ -29,6 +30,8 @@ main(int argc, char *argv[])
     init_client_kqueue(client);
     init_server_kqueue(client->server);
     init_default_world(client->server->world);
+
+    client->entity = find_entity(client->server->world, 2);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

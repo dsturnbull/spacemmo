@@ -13,7 +13,6 @@ init_ui(client_t *client)
 {
     ui_t *ui = calloc(1, sizeof(ui_t));
     ui->client = client;
-
     return ui;
 }
 

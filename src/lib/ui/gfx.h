@@ -22,9 +22,9 @@ gfx_t * init_gfx(ui_t *);
 void init_gfx_ui(gfx_t *);
 void init_gfx_menu(gfx_t *);
 
-void init_gfx_ship_ui(gfx_t *);
-void init_gfx_ship(gfx_t *);
-void init_gfx_ship_status_window(gfx_t *);
+void init_gfx_ship_ui(gfx_t *, entity_t *);
+void init_gfx_ship(gfx_t *, entity_t *);
+void init_gfx_ship_status_window(gfx_t *, entity_t *);
 
 void update_gfx(gfx_t *, double);
 void shutdown_gfx(gfx_t *);
