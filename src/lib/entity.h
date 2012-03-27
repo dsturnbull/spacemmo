@@ -11,6 +11,7 @@ struct entity_st {
     bool dead;
 
     vec3f *pos, *vel, *acc;
+    vec3f *ypr;
 
     input_t *input;
     system_t *system;

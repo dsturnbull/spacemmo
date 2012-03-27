@@ -34,7 +34,8 @@ init_gfx(ui_t *ui)
 {
     gfx_t *gfx = calloc(1, sizeof(gfx_t));
     gfx->ui = ui;
-    gfx->eye.z = -50;
+    gfx->eye = calloc(1, sizeof(vec3f));
+    gfx->tgt = calloc(1, sizeof(vec3f));
 
     gfx->w = 1024;
     gfx->h = 768;
@@ -96,9 +97,9 @@ init_gfx(ui_t *ui)
 }
 
 void
-init_gfx_ui(gfx_t *gfx)
+init_gfx_ui(gfx_t *this)
 {
-    init_gfx_menu(gfx);
+    init_gfx_menu(this);
     //init_skybox("data/space.png");
 }
 
@@ -125,6 +126,13 @@ init_gfx_ship_ui(gfx_t *gfx, entity_t *entity)
 void
 init_gfx_ship(gfx_t *gfx, entity_t *entity)
 {
+    for (int x = 0; x < STAR_GRID_SIZE; x++)
+        for (int y = 0; y < STAR_GRID_SIZE; y++) {
+            gfx->star_grid[x][y] = calloc(1, sizeof(vec3f));
+            gfx->star_grid[x][y]->x = (float)(rand() & 0xFF) * 2;
+            gfx->star_grid[x][y]->y = (float)(rand() & 0xFF) * 2;
+        }
+
     // gluCylinder(gluNewQuadric(), 2, 1, 2, 4, 4);
 }
 
@@ -139,10 +147,11 @@ init_gfx_ship_status_window(gfx_t *gfx, entity_t *entity)
     vec3f *pos = entity->pos;
     vec3f *vel = entity->vel;
     vec3f *acc = entity->acc;
+    vec3f *ypr = entity->ypr;
 
     char *hint;
-    char *fmt = "x:%f y:%f z:%f";
-    asprintf(&hint, "x:%f y:%f z:%f", 0.0f, 0.0f, 0.0f);
+    char *fmt = "x:%lf y:%lf z:%lf";
+    asprintf(&hint, "x:%lf y:%lf z:%lf", 0.0f, 0.0f, 0.0f);
 
     AG_Label *l;
 
@@ -156,6 +165,10 @@ init_gfx_ship_status_window(gfx_t *gfx, entity_t *entity)
 
     l = AG_LabelNew(win, AG_LABEL_FRAME, "Position");
     l = AG_LabelNewPolled(win, 0, fmt, &pos->x, &pos->y, &pos->z);
+    AG_LabelSizeHint(l, 1, hint);
+
+    l = AG_LabelNew(win, AG_LABEL_FRAME, "YPR");
+    l = AG_LabelNewPolled(win, 0, fmt, &ypr->x, &ypr->y, &ypr->z);
     AG_LabelSizeHint(l, 1, hint);
 
     AG_WindowShow(win);
@@ -180,29 +193,8 @@ update_gfx(gfx_t *gfx, double dt)
             glPushMatrix();
             {
                 glLoadIdentity();
-
-                // render entities
-                /*
-                world_t *world = gfx->ui->client->server->world;
-                foreach_entity(world, ^(entity_t *e) {
-                    if (e != gfx->ui->client->entity) {
-
-                        glTranslatef(e->pos.x, e->pos.y, e->pos.z);
-
-                        glBegin(GL_QUADS);
-
-                        glColor3f(1, 0, 0);
-                        glVertex3f(0.0f, 0.0f, -50.0f);
-                        glVertex3f(1.0f, 0.0f, -50.0f);
-                        glVertex3f(1.0f, 1.0f, -50.0f);
-                        glVertex3f(0.0f, 1.0f, -50.0f);
-
-                        glEnd();
-                    }
-                });
-                */
+                render_stars(gfx, dt);
             }
-
             glPopMatrix();
         }
         glMatrixMode(GL_PROJECTION);
@@ -226,6 +218,67 @@ update_gfx(gfx_t *gfx, double dt)
     while (AG_PendingEvents(gfx->drv) > 0)
         if (AG_GetNextEvent(gfx->drv, &ev))
             handle_event(gfx, &ev);
+}
+
+void
+render_stars(gfx_t *gfx, double dt)
+{
+    glPushMatrix();
+    {
+        glTranslatef(-256.0f, 256.0f, -256.0f);
+
+        for (int x = 0; x < STAR_GRID_SIZE; x++) {
+            for (int y = 0; y < STAR_GRID_SIZE; y++) {
+                glPushMatrix();
+                {
+                    vec3f *loc = gfx->star_grid[x][y];
+                    if ((rand() & 0xFFF) < 128) {
+                        gfx->star_pos = 0;
+                    }
+                    gfx->star_pos += 0.1;
+
+                    vec3f *vel = gfx->ui->client->entity->vel;
+                    vec3f *ypr = gfx->ui->client->entity->ypr;
+
+                    glTranslatef(loc->x, -loc->y, loc->z);
+
+                    glRotatef(vel->x, 0, 1, 0);
+                    glRotatef(vel->y, 1, 0, 0);
+
+                    glRotatef(ypr->x, 0, 1, 0);
+                    glRotatef(ypr->y, 1, 0, 0);
+                    glRotatef(ypr->z, 0, 0, 1);
+
+                    glColor3f(1.0f, 1.0f, 1.0f);
+
+                    glPushMatrix();
+                    {
+                        glBegin(GL_TRIANGLES);
+                        glVertex3f(0.0f, 0.0f, 0.0f);
+                        glVertex3f(0.0f, 1.0f, 0.0f);
+                        glVertex3f(1.0f, 1.0f, 0.0f);
+                        glEnd();
+                    }
+                    glPopMatrix();
+
+                    glBegin(GL_LINES);
+                    glVertex3f(0.0f, 0.0f, 0.0f);
+                    glVertex3f(
+                           vel->x / 10// + gfx->star_pos
+                        , -vel->y / 10// + gfx->star_pos
+                        ,  vel->z / 10// + gfx->star_pos
+                    );
+                    glEnd();
+
+                }
+                glPopMatrix();
+
+            }
+
+        }
+
+    }
+    glPopMatrix();
 }
 
 void

@@ -66,8 +66,8 @@ handle_mouse(input_t *input, AG_DriverEvent *ev)
             //if (mouse->y == 0)
             //    SDL_WarpMouse(mouse->x, input->ui->gfx->h);
 
-            input->ui->gfx->tgt.x += mouse->xRel;
-            input->ui->gfx->tgt.y += mouse->yRel;
+            input->ui->gfx->tgt->x += mouse->xRel;
+            input->ui->gfx->tgt->y += mouse->yRel;
             break;
     }
 

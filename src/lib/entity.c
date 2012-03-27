@@ -25,6 +25,7 @@ init_entity(system_t *system)
     this->pos = calloc(1, sizeof(vec3f));
     this->vel = calloc(1, sizeof(vec3f));
     this->acc = calloc(1, sizeof(vec3f));
+    this->ypr = calloc(1, sizeof(vec3f));
 
     this->input = init_input(NULL);
 
@@ -39,9 +40,14 @@ update_entity(entity_t *this, double dt)
         update_computer(this->computer, dt);
 
     bool *keys = this->input->keys;
-    float thrust_amt = 0.1;
-    vec3f *acc = this->acc;
+    float thrust_amt = 1;
 
+    vec3f *pos = this->pos;
+    vec3f *vel = this->vel;
+    vec3f *acc = this->acc;
+    vec3f *ypr = this->ypr;
+
+    // thrust
     if (keys['w'])
         acc->z += thrust_amt;
 
@@ -60,8 +66,33 @@ update_entity(entity_t *this, double dt)
     if (keys['z'])
         acc->y -= thrust_amt;
 
+    // ypr
+    if (keys['k'])
+        ypr->y -= thrust_amt;
+
+    if (keys['j'])
+        ypr->y += thrust_amt;
+
+    if (keys['h'])
+        ypr->x -= thrust_amt;
+
+    if (keys['l'])
+        ypr->x += thrust_amt;
+
+    if (keys[','])
+        ypr->z += thrust_amt;
+
+    if (keys['.'])
+        ypr->z -= thrust_amt;
+
+    // stop
     if (keys[' '])
         acc->x = acc->y = acc->z = 0.0;
+
+    if (keys['r']) {
+        vel->x = vel->y = 0.0;
+        acc->x = acc->y = acc->z = 0.0;
+    }
 
     if (false) { //e->parent && e->period > 0) {
         //(x - a)² + (y - b)² = r²
