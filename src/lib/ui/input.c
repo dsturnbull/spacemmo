@@ -83,7 +83,7 @@ handle_keypress(input_t *input, AG_DriverEvent *ev)
 
             switch (ev->data.key.ks) {
                 case 27:
-                    input->quit = true;
+                    input->ui->client->quit = true;
                     return 1;
 
                 default:

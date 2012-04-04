@@ -20,7 +20,7 @@ CL_SRCS=src/cl.c
 CL_OBJS=$(CL_SRCS:%.c=%.o)
 CL_CFLAGS+=-flto $(OPT)
 CL_LDFLAGS+=$(LDFLAGS)
-CL_LDFLAGS+=-lSDL
+CL_LDFLAGS+=-lSDL -lSDL_image
 CL_LDFLAGS+=-framework Cocoa -framework OpenGL
 CL_LDFLAGS+=$(shell pkg-config libpng --libs)
 
@@ -37,7 +37,7 @@ SV_CFLAGS+=-flto $(OPT)
 SV_LDFLAGS=$(LDFLAGS)
 
 LIB=libspacemmo.dylib
-LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c)
+LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c)
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
 
 SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS)

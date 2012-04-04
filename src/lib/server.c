@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <db.h>
 #include <err.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -35,10 +36,9 @@ init_server_kqueue(server_t *server)
     if ((server->kq = kqueue()) == -1)
         err(EX_UNAVAILABLE, "kqueue");
 
-    memset(&server->ke, 0, sizeof(struct kevent));
-
     // listen for events on socket
     if (server->host && server->port) {
+        memset(&server->ke, 0, sizeof(struct kevent));
         server->sock = get_socket(server->host, server->port);
         EV_SET(&server->ke, server->sock, EVFILT_READ, EV_ADD, 0,
                 LISTEN_BACKLOG, NULL);
@@ -73,8 +73,10 @@ handle_server_events(server_t *server)
 {
     // respond to events
     memset(&server->ke, 0, sizeof(server->ke));
-    if (kevent(server->kq, NULL, 0, &server->ke, 1, NULL) <= 0)
-        err(EX_UNAVAILABLE, "handle_server_events");
+    if (kevent(server->kq, NULL, 0, &server->ke, 1, NULL) <= 0) {
+        usleep(5000);
+        return;
+    }
 
     if (server->ke.ident == (uintptr_t)server->sock) {
         // client connection

@@ -28,6 +28,7 @@ struct client_st {
     struct kevent ke;
     int kq;
     int server_sock;
+    bool quit;
 };
 
 struct server_conn_st {

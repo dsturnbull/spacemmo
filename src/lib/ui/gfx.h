@@ -17,9 +17,7 @@ struct gfx_st {
     AG_Menu *menu;
     vec3f *eye;
     vec3f *tgt;
-
-    vec3f *star_grid[STAR_GRID_SIZE][STAR_GRID_SIZE];
-    float star_pos;
+    struct ag_mouse *mouse;
 };
 
 gfx_t * init_gfx(ui_t *);
@@ -32,7 +30,7 @@ void init_gfx_ship(gfx_t *, entity_t *);
 void init_gfx_ship_status_window(gfx_t *, entity_t *);
 
 void update_gfx(gfx_t *, double);
-void render_stars(gfx_t *, double);
+void orient_eye(gfx_t *);
 void shutdown_gfx(gfx_t *);
 
 int handle_event(gfx_t *, AG_DriverEvent *);

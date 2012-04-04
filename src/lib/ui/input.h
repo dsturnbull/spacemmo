@@ -11,7 +11,6 @@
 struct input_st {
     ui_t *ui;
     bool keys[255];
-    bool quit;
 };
 
 input_t * init_input(ui_t *);

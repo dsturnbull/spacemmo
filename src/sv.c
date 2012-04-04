@@ -7,6 +7,8 @@
 int
 main(int argc, char *argv[])
 {
+    server_t *server = init_server();
+    server_loop(server);
     return 0;
 }
 

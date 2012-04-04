@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 typedef struct png_st {
-    int w, h;
+    int w, h, bpp;
     unsigned char **data;
 } png_t;
 

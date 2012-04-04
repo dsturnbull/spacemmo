@@ -20,6 +20,7 @@
 #include "src/lib/ui/input.h"
 #include "src/lib/ui/util.h"
 #include "src/lib/ui/skybox.h"
+#include "src/lib/ui/starfield.h"
 
 bool show_ui = true;
 bool bg_focused;
@@ -99,8 +100,11 @@ init_gfx(ui_t *ui)
 void
 init_gfx_ui(gfx_t *this)
 {
+    this->mouse = this->drv->mouse;
     init_gfx_menu(this);
     //init_skybox("data/space.png");
+    init_skybox("data/spheremapgalaxyasteroid.png");
+    //init_skybox("data/SkyBox-Clouds-Few-Dawn.png");
 }
 
 void
@@ -126,13 +130,7 @@ init_gfx_ship_ui(gfx_t *gfx, entity_t *entity)
 void
 init_gfx_ship(gfx_t *gfx, entity_t *entity)
 {
-    for (int x = 0; x < STAR_GRID_SIZE; x++)
-        for (int y = 0; y < STAR_GRID_SIZE; y++) {
-            gfx->star_grid[x][y] = calloc(1, sizeof(vec3f));
-            gfx->star_grid[x][y]->x = (float)(rand() & 0xFF) * 2;
-            gfx->star_grid[x][y]->y = (float)(rand() & 0xFF) * 2;
-        }
-
+    init_starfield(gfx);
     // gluCylinder(gluNewQuadric(), 2, 1, 2, 4, 4);
 }
 
@@ -193,7 +191,10 @@ update_gfx(gfx_t *gfx, double dt)
             glPushMatrix();
             {
                 glLoadIdentity();
-                render_stars(gfx, dt);
+
+                orient_eye(gfx);
+                render_skybox(gfx, 0);
+                render_starfield(gfx, dt);
             }
             glPopMatrix();
         }
@@ -218,67 +219,26 @@ update_gfx(gfx_t *gfx, double dt)
     while (AG_PendingEvents(gfx->drv) > 0)
         if (AG_GetNextEvent(gfx->drv, &ev))
             handle_event(gfx, &ev);
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 }
 
 void
-render_stars(gfx_t *gfx, double dt)
+orient_eye(gfx_t *gfx)
 {
-    glPushMatrix();
-    {
-        glTranslatef(-256.0f, 256.0f, -256.0f);
+    //vec3f *vel = gfx->ui->client->entity->vel;
 
-        for (int x = 0; x < STAR_GRID_SIZE; x++) {
-            for (int y = 0; y < STAR_GRID_SIZE; y++) {
-                glPushMatrix();
-                {
-                    vec3f *loc = gfx->star_grid[x][y];
-                    if ((rand() & 0xFFF) < 128) {
-                        gfx->star_pos = 0;
-                    }
-                    gfx->star_pos += 0.1;
+    //glRotatef(vel->x, 0, 1, 0);
+    //glRotatef(vel->y, 1, 0, 0);
 
-                    vec3f *vel = gfx->ui->client->entity->vel;
-                    vec3f *ypr = gfx->ui->client->entity->ypr;
+    vec3f *ypr = gfx->ui->client->entity->ypr;
 
-                    glTranslatef(loc->x, -loc->y, loc->z);
+    glRotatef(gfx->mouse->y, 1, 0, 0);
+    glRotatef(gfx->mouse->x, 0, 1, 0);
 
-                    glRotatef(vel->x, 0, 1, 0);
-                    glRotatef(vel->y, 1, 0, 0);
-
-                    glRotatef(ypr->x, 0, 1, 0);
-                    glRotatef(ypr->y, 1, 0, 0);
-                    glRotatef(ypr->z, 0, 0, 1);
-
-                    glColor3f(1.0f, 1.0f, 1.0f);
-
-                    glPushMatrix();
-                    {
-                        glBegin(GL_TRIANGLES);
-                        glVertex3f(0.0f, 0.0f, 0.0f);
-                        glVertex3f(0.0f, 1.0f, 0.0f);
-                        glVertex3f(1.0f, 1.0f, 0.0f);
-                        glEnd();
-                    }
-                    glPopMatrix();
-
-                    glBegin(GL_LINES);
-                    glVertex3f(0.0f, 0.0f, 0.0f);
-                    glVertex3f(
-                           vel->x / 10// + gfx->star_pos
-                        , -vel->y / 10// + gfx->star_pos
-                        ,  vel->z / 10// + gfx->star_pos
-                    );
-                    glEnd();
-
-                }
-                glPopMatrix();
-
-            }
-
-        }
-
-    }
-    glPopMatrix();
+    glRotatef(ypr->z, 0, 0, 1);
+    glRotatef(ypr->y, 1, 0, 0);
+    glRotatef(ypr->x, 0, 1, 0);
 }
 
 void
@@ -328,7 +288,7 @@ handle_event(gfx_t *gfx, AG_DriverEvent *ev)
             break;
 
         case AG_DRIVER_CLOSE:
-            gfx->ui->input->quit = true;
+            gfx->ui->client->quit = true;
             return 1;
 
         case AG_DRIVER_MOUSE_MOTION:

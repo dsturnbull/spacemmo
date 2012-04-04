@@ -102,12 +102,12 @@ process_input(console_t *console)
                 break;
 
             case CMD_QUIT:
-                console->ui->input->quit = true;
+                console->ui->client->quit = true;
                 break;
         }
     }
 
-    console->ui->input->quit = true;
+    console->ui->client->quit = true;
 }
 
 cmd_t

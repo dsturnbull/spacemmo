@@ -9,10 +9,16 @@
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 
+#include "src/lib/cpu.h"
+
 int
 main(int argc, char *argv[])
 {
     init_spacemmo();
+
+    cpu_t *cpu = init_cpu();
+    run_prog(cpu);
+    return 0;
 
     client_t *client    = init_client();
 
