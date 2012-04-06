@@ -50,6 +50,9 @@ typedef struct computer_st computer_t;
 struct cpu_st;
 typedef struct cpu_st cpu_t;
 
+struct asmr_st;
+typedef struct asmr_st asmr_t;
+
 struct ui_st;
 typedef struct ui_st ui_t;
 

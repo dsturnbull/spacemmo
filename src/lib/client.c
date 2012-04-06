@@ -162,6 +162,7 @@ handle_server_response(client_t *client, char *buf, int len)
     int consumed;
     packet_t *packet = (packet_t *)buf;
 
+    /*
     switch (packet->type) {
         default:
             fprintf(stderr, "unhandled packet %i\n", packet->type);
@@ -171,5 +172,6 @@ handle_server_response(client_t *client, char *buf, int len)
 
     if (len - consumed > 0)
         handle_server_response(client, buf + consumed, len - consumed);
+    */
 }
 

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include "src/lib/cpu.h"
 
@@ -12,7 +13,7 @@ init_cpu()
 {
     cpu_t *cpu = calloc(1, sizeof(cpu_t));
 
-    const char *fn = "data/vars.s";
+    const char *fn = "data/data.s";
     struct stat st;
     if (stat(fn, &st) < 0)
         return NULL;
@@ -25,209 +26,235 @@ init_cpu()
     fread(code, st.st_size, 1, fp);
     fclose(fp);
 
-    cpu_asm(code);
-    load_prog(cpu, asmr.prog, asmr.prog_len);
-    exit(0);
+    asmr_t *asmr = init_asmr();
+    cpu_asm(asmr, code);
+    load_prog(cpu, asmr->prog, asmr->prog_len);
 
     cpu->ip = &cpu->mem[0];
     return cpu;
 }
 
+asmr_t *
+init_asmr()
+{
+    asmr_t *asmr = malloc(sizeof(asmr_t));
+    asmr->labels_size = 1024;
+    asmr->label_count = 0;
+    asmr->labels = malloc(asmr->labels_size * sizeof(struct label *));
+
+    asmr->missings_size = 1024;
+    asmr->missing_count = 0;
+    asmr->missing = malloc(asmr->labels_size * sizeof(struct label *));
+
+    asmr->data_size = 1024;
+    asmr->data_count = 0;
+    asmr->data = malloc(asmr->data_size * sizeof(struct data *));
+
+    asmr->prog = calloc(1024, sizeof(uint32_t));
+    asmr->ip = asmr->prog;
+
+    return asmr;
+}
+
 size_t
-cpu_asm(const char *code)
+cpu_asm(asmr_t *asmr, const char *code)
 {
     char *inp = strdup(code);
     char *line;
-    asmr.prog = calloc(1024, sizeof(uint32_t));
-    uint32_t *ip = &asmr.prog[0];
     size_t lineno = 0;
-
-    asmr.labels_size = 1024;
-    asmr.label_count = 0;
-    asmr.labels = malloc(asmr.labels_size * sizeof(struct label *));
-
-    asmr.missings_size = 1024;
-    asmr.missing_count = 0;
-    asmr.missing = malloc(asmr.labels_size * sizeof(struct label *));
-
-    asmr.data_size = 1024;
-    asmr.data_count = 0;
-    asmr.data = malloc(asmr.data_size * sizeof(struct data *));
 
     while ((line = strsep(&inp, "\n")) != NULL) {
         lineno++;
+        normalise_line(&line);
 
-        // skip whitespace
-        while (*(line) == '\t')
-            line++;
+        char *ops = strsep(&line, "\t");
 
-        // skip comments
-        char *c;
-        if ((c = strchr(line, ';')) != NULL) {
-            c--;
-            while (*c == '\t')
-                c--;
-            *(c + 1) = '\0';
+        if (ops[0] == '_') {
+            make_label(asmr, ops);
+            continue;
         }
 
-        char *op = strsep(&line, "\t");
+        if (ops[0] == ';')
+            continue;
 
-        if (op[0] == '_') {
-            // chomp
-            op++;
-            op[strlen(op) - 1] = '\0';
+        if (strlen(ops) == 0)
+            continue;
 
-            asmr.labels[asmr.label_count] = malloc(sizeof(struct label));
-            asmr.labels[asmr.label_count]->name = strdup(op);
-            asmr.labels[asmr.label_count]->addr = ip - asmr.prog;
-            asmr.label_count++;
-        }
+        op_t op = parse_op(ops);
 
-        if (strcmp(op, "HLT") == 0) {
-            push(&ip, &line, HLT, 0);
-        }
+        char *data;
+        uint32_t addr;
 
-        if (strcmp(op, "LDI") == 0) {
-            push(&ip, &line, LDI, 1);
-        }
+        switch (op) {
+            case NOP:
+            case OUT:
+            case HLT:
+                push(asmr, NULL, op, 0);
+                break;
 
-        if (strcmp(op, "LDX") == 0) {
-            push(&ip, &line, LDX, 1);
-        }
+            case LDI:
+            case LD0:
+            case LDP:
+            case ST0:
+            case SUB:
+            case JMP:
+            case JZ:
+            case JNZ:
+            case ADD:
+            case DIV:
+            case MUL:
+                push(asmr, &line, op, 1);
+                break;
 
-        if (strcmp(op, "LDP") == 0) {
-            push(&ip, &line, LDP, 1);
-        }
+            case INC:
+                push(asmr, &line, LD0, 1);
+                push(asmr, NULL, ADD, 0);
+                push(asmr, NULL, 1, 0);
+                push(asmr, NULL, ST0, 0);
+                push(asmr, NULL, *(asmr->ip - 4), 0);
+                break;
 
-        if (strcmp(op, "STX") == 0) {
-            push(&ip, &line, STX, 1);
-        }
+            case DEC:
+                push(asmr, &line, LD0, 1);
+                push(asmr, NULL, SUB, 0);
+                push(asmr, NULL, 1, 0);
+                push(asmr, NULL, ST0, 0);
+                push(asmr, NULL, *(asmr->ip - 4), 0);
+                break;
 
-        if (strcmp(op, "SUB") == 0) {
-            push(&ip, &line, SUB, 1);
-        }
+            case DATA:
+                sscanf(strsep(&line, "\t"), "%x", &addr);
 
-        if (strcmp(op, "JMP") == 0) {
-            push(&ip, &line, JMP, 1);
-        }
+                while ((data = strsep(&line, ",")) != NULL) {
+                    if (data[0] == '"') {
+                        // string
+                        data++; data[strlen(data) - 1] = '\0';
+                        size_t data_len = strlen(data);
 
-        if (strcmp(op, "JZ") == 0) {
-            push(&ip, &line, JZ, 1);
-        }
-
-        if (strcmp(op, "JNZ") == 0) {
-            push(&ip, &line, JNZ, 1);
-        }
-
-        if (strcmp(op, "ADD") == 0) {
-            push(&ip, &line, ADD, 1);
-        }
-
-        if (strcmp(op, "OUT") == 0) {
-            push(&ip, &line, OUT, 0);
-        }
-
-        if (strcmp(op, "INC") == 0) {
-            push(&ip, &line, LDX, 1);
-            push(&ip, NULL, ADD, 0);
-            push(&ip, NULL, 1, 0);
-            push(&ip, NULL, STX, 0);
-            push(&ip, NULL, *(ip - 4), 0);
-        }
-
-        if (strcmp(op, "DEC") == 0) {
-            push(&ip, &line, LDX, 1);
-            push(&ip, NULL, SUB, 0);
-            push(&ip, NULL, 1, 0);
-            push(&ip, NULL, STX, 0);
-            push(&ip, NULL, *(ip - 4), 0);
-        }
-
-        if (strcmp(op, "DATA") == 0) {
-            char *name = strsep(&line, "\t");
-
-            int i;
-            for (i = 0; i < asmr.data_count; i++)
-                if (asmr.data[i] == NULL)
-                    break;
-
-            asmr.data[i] = malloc(sizeof(struct data));
-            asmr.data[i]->name = strdup(name);
-
-            char *data;
-
-            while ((data = strsep(&line, ",")) != NULL) {
-                if (data[0] == '"') {
-                    // string
-                    data++; data[strlen(data) - 1] = '\0';
-                    size_t data_len = strlen(data);
-
-                    /* for (int i = 0; i < data_len; i++) { */
-                    /*     push(&ip, NULL, LDI, 0); */
-                    /*     push(&ip, NULL, data[i], 0); */
-                    /*     push(&ip, NULL, STX, 0); */
-                    /*     push(&ip, NULL, addr++, 0); */
-                    /* } */
-
-                } else {
-
-                    // hex value
-                    /* uint32_t byte; */
-                    /* sscanf(data, "%x", &byte); */
-                    /* push(&ip, NULL, LDI, 0); */
-                    /* push(&ip, NULL, byte, 0); */
-                    /* push(&ip, NULL, STX, 0); */
-                    /* push(&ip, NULL, addr++, 0); */
-
-                }
-            }
-        }
-    }
-
-    for (int i = 0; i < CPU_MEMORY_SZ; i++) {
-        if (asmr.prog[i] == 0xdeadbeef) {
-            for (int j = 0; j < asmr.missing_count; j++) {
-                if (asmr.missing[j]->addr == i) {
-                    for (int n = 0; n < asmr.label_count; n++) {
-                        if (strcmp(asmr.labels[n]->name,
-                                    asmr.missing[j]->name) == 0) {
-                            asmr.prog[i] = asmr.labels[n]->addr;
+                        for (int i = 0; i < data_len; i++) {
+                            push(asmr, NULL, LDI, 0);
+                            push(asmr, NULL, data[i], 0);
+                            push(asmr, NULL, ST0, 0);
+                            push(asmr, NULL, addr++, 0);
                         }
+
+                    } else {
+
+                        // hex value
+                        uint32_t byte;
+                        sscanf(data, "%x", &byte);
+                        push(asmr, NULL, LDI, 0);
+                        push(asmr, NULL, byte, 0);
+                        push(asmr, NULL, ST0, 0);
+                        push(asmr, NULL, addr++, 0);
+
                     }
                 }
+                break;
+
             }
-        }
     }
 
-    uint32_t *p = asmr.prog;
-    size_t len = ip - asmr.prog;
-    for (int i = 0; i < len; i += 16) {
-        printf("%02x: ", i);
+    for (int i = 0; i < CPU_MEMORY_SZ; i++)
+        if (asmr->prog[i] == 0xdeadbeef)
+            for (int j = 0; j < asmr->missing_count; j++)
+                if (asmr->missing[j]->addr == i)
+                    for (int n = 0; n < asmr->label_count; n++)
+                        if (strcmp(asmr->labels[n]->name,
+                                    asmr->missing[j]->name) == 0)
+                            asmr->prog[i] = asmr->labels[n]->addr;
+
+    uint32_t *p = asmr->prog;
+    asmr->prog_len = asmr->ip - asmr->prog;
+    for (int i = 0; i < asmr->prog_len; i += 16) {
+        printf("%08x: ", i);
         for (int j = 0; j < 16; j++) {
             if (j % 4 == 0)
                 printf(" ");
-            printf("%02x ", *(p++));
+            printf("%08x ", *(p++));
         }
         printf("\n");
     }
     printf("\n");
 
-    free(asmr.labels);
-    free(asmr.missing);
+    free(asmr->labels);
+    free(asmr->missing);
     free(inp);
 
-    asmr.prog_len = ip - asmr.prog;
-    return ip - asmr.prog;
+    return asmr->prog_len;
+}
+
+void
+make_label(asmr_t *asmr, char *s)
+{
+    // chomp
+    s++; s[strlen(s) - 1] = '\0';
+
+    asmr->labels[asmr->label_count] = malloc(sizeof(struct label));
+    asmr->labels[asmr->label_count]->name = strdup(s);
+    asmr->labels[asmr->label_count]->addr = asmr->ip - asmr->prog;
+    asmr->label_count++;
+}
+
+op_t
+parse_op(char *op)
+{
+    CHECK_OP(NOP);
+    CHECK_OP(HLT);
+    CHECK_OP(LD0);
+    CHECK_OP(LDI);
+    CHECK_OP(LDP);
+    CHECK_OP(ST0);
+    CHECK_OP(OUT);
+    CHECK_OP(JMP);
+    CHECK_OP(JZ);
+    CHECK_OP(JNZ);
+    CHECK_OP(SUB);
+    CHECK_OP(ADD);
+    CHECK_OP(DIV);
+    CHECK_OP(MUL);
+    CHECK_OP(INC);
+    CHECK_OP(DEC);
+    CHECK_OP(DATA);
+    return NOP;
+}
+
+void
+normalise_line(char **line)
+{
+    // skip whitespace
+    while (*(*line) == '\t')
+        (*line)++;
+
+    // skip comments
+    char *c;
+    if ((c = strchr(*line, ';')) != NULL) {
+        c--;
+        while (*c == '\t')
+            c--;
+        *(c + 1) = '\0';
+    }
 }
 
 uint32_t
-read_value(char *s, uint32_t *ip)
+read_value(asmr_t *asmr, char *s, uint32_t *ip)
 {
     uint32_t arg = 0;
 
     if (s[0] == '0' && s[1] == 'x') {
         // memory address
         sscanf(s, "%x", &arg);
+
+    } else if (s[0] == 'C' && s[1] == 'P' && s[2] == 'U') {
+        // const
+        if (strcmp(s, "CPU_CLOCK") == 0) {
+            arg = CPU_CLOCK;
+        }
+
+    } else if (s[0] == 'r' && s[1] >= 0x30 && s[1] <= 0x37) {
+        // register
+        arg = R0 + (s[1] - 0x30) * R0;
+
     } else {
         // label
         bool variable = true;
@@ -239,21 +266,21 @@ read_value(char *s, uint32_t *ip)
         }
 
         int i;
-        for (i = 0; i < asmr.label_count; i++) {
-            if (strcmp(asmr.labels[i]->name, s) == 0) {
-                label = asmr.labels[i];
+        for (i = 0; i < asmr->label_count; i++) {
+            if (strcmp(asmr->labels[i]->name, s) == 0) {
+                label = asmr->labels[i];
                 break;
             }
         }
 
         if (label) {
-            arg = asmr.labels[i]->addr;
+            arg = asmr->labels[i]->addr;
         } else {
-            asmr.missing[asmr.missing_count] =
+            asmr->missing[asmr->missing_count] =
                 malloc(sizeof(struct label));
-            asmr.missing[asmr.missing_count]->addr = ip - asmr.prog;
-            asmr.missing[asmr.missing_count]->name = strdup(s);
-            asmr.missing_count++;
+            asmr->missing[asmr->missing_count]->addr = ip - asmr->prog;
+            asmr->missing[asmr->missing_count]->name = strdup(s);
+            asmr->missing_count++;
             arg = 0xdeadbeef;
         }
     }
@@ -262,13 +289,13 @@ read_value(char *s, uint32_t *ip)
 }
 
 void
-push(uint32_t **ip, char **line, uint32_t op, size_t n)
+push(asmr_t *asmr, char **line, uint32_t op, size_t n)
 {
-    *(*ip)++ = op;
+    *(asmr->ip)++ = op;
     for (int i = 0; i < n; i++) {
         char *s  = strsep(line, "\t");
-        uint32_t arg = read_value(s, *ip);
-        *(*ip)++ = arg;
+        uint32_t arg = read_value(asmr, s, asmr->ip);
+        *(asmr->ip)++ = arg;
     }
 }
 
@@ -285,9 +312,15 @@ run_prog(cpu_t *cpu)
 {
     uint32_t op;
     uint32_t addr;
+    uint32_t d, r;
 
     while ((op = *(cpu->ip++)) != 0) {
-        /* printf("%li: %x %x\n", cpu->ip - cpu->mem, op, *cpu->ip); */
+        gettimeofday(&cpu->time, NULL);
+        cpu->mem[CPU_CLOCK] = cpu->time.tv_sec;
+        cpu->mem[R0] = cpu->r0;
+        cpu->mem[R1] = cpu->r1;
+
+        /* printf("%04lx: %04x %04x\n", cpu->ip - cpu->mem, op, *cpu->ip); */
         switch (op) {
             case HLT:
                 /* printf("HLT\n"); */
@@ -295,28 +328,28 @@ run_prog(cpu_t *cpu)
 
             case LDI:
                 /* printf("LDI\n"); */
-                cpu->ax = *(cpu->ip++);
+                cpu->r0 = *(cpu->ip++);
                 break;
 
-            case LDX:
-                /* printf("LDX\n"); */
-                cpu->ax = cpu->mem[*(cpu->ip++)];
+            case LD0:
+                /* printf("LD0\n"); */
+                cpu->r0 = cpu->mem[*(cpu->ip++)];
                 break;
 
             case LDP:
                 /* printf("LDP\n"); */
-                cpu->ax = cpu->mem[cpu->mem[*(cpu->ip++)]];
+                cpu->r0 = cpu->mem[cpu->mem[*(cpu->ip++)]];
                 break;
 
-            case STX:
-                /* printf("STX\n"); */
-                cpu->mem[*(cpu->ip++)] = cpu->ax;
+            case ST0:
+                /* printf("ST0\n"); */
+                cpu->mem[*(cpu->ip++)] = cpu->r0;
                 break;
 
             case OUT:
                 /* printf("OUT\n"); */
-                printf("%c", cpu->ax);
-                //printf("%08x\n", cpu->ax);
+                printf("%c", cpu->r0);
+                /* printf("%08x\n", cpu->r0); */
                 break;
 
             case JMP:
@@ -327,25 +360,33 @@ run_prog(cpu_t *cpu)
             case JZ:
                 /* printf("JZ\n"); */
                 addr = *(cpu->ip++);
-                if (cpu->ax == 0)
+                if (cpu->r0 == 0)
                     cpu->ip = &cpu->mem[addr];
                 break;
 
             case JNZ:
                 /* printf("JNZ\n"); */
                 addr = *(cpu->ip++);
-                if (cpu->ax != 0)
+                if (cpu->r0 != 0)
                     cpu->ip = &cpu->mem[addr];
                 break;
 
             case SUB:
                 /* printf("SUB\n"); */
-                cpu->ax -= *(cpu->ip++);
+                cpu->r0 -= *(cpu->ip++);
                 break;
 
             case ADD:
                 /* printf("ADD\n"); */
-                cpu->ax += *(cpu->ip++);
+                cpu->r0 += *(cpu->ip++);
+                break;
+
+            case DIV:
+                /* printf("DIV\n"); */
+                d = *(cpu->ip++);
+                r = cpu->r0 % d;
+                cpu->r0 = cpu->r0 / d;
+                cpu->r1 = r;
                 break;
 
             default:

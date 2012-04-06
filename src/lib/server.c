@@ -210,10 +210,10 @@ handle_client_request(server_t *sv, client_conn_t *cl, char *buf, int len)
 {
     packet_t *packet = (packet_t *)buf;
 
-    switch (packet->type) {
-        default:
-            fprintf(stderr, "unhandled packet type %i\n", packet->type);
-            break;
-    }
+    //switch (packet->type) {
+    //    default:
+    //        fprintf(stderr, "unhandled packet type %i\n", packet->type);
+    //        break;
+    //}
 }
 

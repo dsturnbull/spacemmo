@@ -2,9 +2,9 @@ CC=clang
 
 #OPT=-O4
 OPT=-g
-CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch-enum -Wswitch
+CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch
 CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare
-CFLAGS+=-std=c99
+CFLAGS+=-std=c11
 CFLAGS+=-I. -I/usr/local/include/SDL
 CFLAGS+=$(shell pkg-config libpng --cflags)
 CFLAGS+=$(shell agar-vg-config --cflags)
