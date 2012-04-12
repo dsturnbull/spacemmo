@@ -15,16 +15,16 @@
 int
 main(int argc, char *argv[])
 {
-    //cpu_t *cpu = init_cpu(CPU_STACK_CPU);
-    //cpu_load(cpu, "data/stack_cpu/hello.s");
-    //cpu_start(cpu);
+    cpu_t *cpu = init_cpu(CPU_STACK_CPU);
+    cpu_load(cpu, "data/stack_cpu/test.s");
+    cpu_start(cpu);
 
-    //while (!cpu->cpu->halted)
-    //    cpu_step(cpu);
+    while (!cpu->cpu->halted)
+        cpu_step(cpu);
 
-    //cpu_status(cpu);
+    cpu_status(cpu);
 
-    //return 0;
+    return 0;
 
     init_spacemmo();
 

@@ -16,8 +16,8 @@ typedef struct stack_cpu_asm_st {
     struct label **missing;
 
     size_t prog_len;
-    uint32_t *prog;
-    uint32_t *ip;
+    uint8_t *prog;
+    uint8_t *ip;
 
     size_t data_size;
     size_t data_count;
@@ -26,19 +26,18 @@ typedef struct stack_cpu_asm_st {
 
 struct label {
     char *name;
-    uint32_t addr;
+    uint8_t addr;
 };
 
 struct data {
     char *name;
-    uint32_t addr;
+    uint8_t addr;
 };
 
 stack_cpu_asm_t * init_stack_cpu_asm();
 size_t stack_cpu_asm(stack_cpu_asm_t *, const char *);
 void parse_file(stack_cpu_asm_t *, const char *);
-uint32_t read_value(stack_cpu_asm_t *, char *, uint32_t *);
-void push(stack_cpu_asm_t *, char **, uint32_t, size_t);
+uint64_t read_value(stack_cpu_asm_t *, char *, uint8_t *);
 void define_constant(stack_cpu_asm_t *, char *, uint32_t);
 void make_label(stack_cpu_asm_t *, char *);
 op_t parse_op(char *);

@@ -46,6 +46,7 @@ void init_client_kqueue(client_t *);
 void client_loop(client_t *);
 void handle_client_events(client_t *);
 void update_client(client_t *);
+void update_cpus(client_t *);
 
 bool connect_server(server_conn_t **, char *, unsigned short);
 void handle_server_response(client_t *, char *, int);

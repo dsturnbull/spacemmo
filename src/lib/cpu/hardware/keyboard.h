@@ -10,7 +10,7 @@ typedef struct keyboard_st {
 } keyboard_t;
 
 keyboard_t * init_keyboard();
-uint8_t readchar(keyboard_t *);
+void keyboard_state(keyboard_t *, uint8_t[]);
 
 #endif
 

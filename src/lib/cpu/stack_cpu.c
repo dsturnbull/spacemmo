@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #include "src/lib/cpu/stack_cpu_asm.h"
 #include "src/lib/cpu/stack_cpu.h"
@@ -29,7 +30,7 @@ init_stack_cpu()
 }
 
 void
-load_prog(stack_cpu_t *stack_cpu, uint32_t *prog, size_t len)
+load_prog(stack_cpu_t *stack_cpu, uint8_t *prog, size_t len)
 {
     for (size_t i = 0; i < len; i++)
         stack_cpu->mem[i] = prog[i];
@@ -45,23 +46,22 @@ run_prog(stack_cpu_t *cpu)
 void
 step(stack_cpu_t *cpu)
 {
-    op_t op = *(cpu->ip);
-
+    ins_t *ins = (ins_t *)cpu->ip;
     uint32_t t;
 
-    // then ip is set, make it point to the previous instruction,
+    // when ip is set, make it point to the previous instruction,
     // because this loop will increment it at the end.
 
     if (cpu->debug) {
-        printf("ip: " MEM_FMT " "
-                "sp: " MEM_FMT " "
-                "rp: " MEM_FMT " "
-                "op: " MEM_FMT ": "
+        printf( "ip: %02x "
+                "sp: %02x "
+                "rp: %02x "
+                "op: %02x: "
                 "cy: %lu ",
                 (uint32_t)(cpu->ip - cpu->code),
                 (uint32_t)(cpu->sp - cpu->stack),
                 (uint32_t)(cpu->rp - cpu->frames),
-                op,
+                ins->op,
                 cpu->cycles);
     }
 
@@ -69,7 +69,28 @@ step(stack_cpu_t *cpu)
     //gettimeofday(&cpu->time, NULL);
     //cpu->mem[STACK_CPU_CLOCK] = cpu->time.tv_sec;
 
-    switch (op) {
+    switch (ins->op) {
+        case PUSH:
+            if (cpu->debug)
+                printf("push\n");
+            t = (int)pow(2, ins->opt);
+            cpu->ip++;
+            memcpy(cpu->sp, cpu->ip, t);
+            cpu->sp += t;
+            cpu->ip += t;
+            break;
+
+        case POP:
+            if (cpu->debug)
+                printf("pop\n");
+            break;
+
+        default:
+            fprintf(stderr, "unknown instruction %i\n", ins->op);
+            exit(1);
+    }
+
+    /*
         case HLT:
             if (cpu->debug)
                 printf("halt\n");
@@ -78,14 +99,14 @@ step(stack_cpu_t *cpu)
 
         case LOAD:
             if (cpu->debug)
-                printf("loading " MEM_FMT " from " MEM_FMT "\n",
+                printf("loading %02x from %02x\n",
                         cpu->data[*(cpu->sp)], *(cpu->sp));
             *(cpu->sp) = cpu->data[*(cpu->sp)];
             break;
 
         case STORE:
             if (cpu->debug)
-                printf("storing " MEM_FMT " at " MEM_FMT "\n",
+                printf("storing %02x at %02x\n",
                         *(cpu->sp),
                         *(cpu->sp - 1));
             cpu->data[*(cpu->sp--)] = *(cpu->sp--);
@@ -93,7 +114,7 @@ step(stack_cpu_t *cpu)
 
         case ADD:
             if (cpu->debug)
-                printf(MEM_FMT " + " MEM_FMT " == " MEM_FMT "\n",
+                printf("%02x + %02x == %02x\n",
                         *(cpu->sp - 1),
                         *(cpu->sp),
                         *(cpu->sp - 1) + *(cpu->sp));
@@ -103,7 +124,7 @@ step(stack_cpu_t *cpu)
 
         case SUB:
             if (cpu->debug)
-                printf(MEM_FMT " - " MEM_FMT " == " MEM_FMT "\n",
+                printf("%02x - %02x == %02x\n",
                         *(cpu->sp - 1),
                         *(cpu->sp),
                         *(cpu->sp - 1) - *(cpu->sp));
@@ -116,7 +137,7 @@ step(stack_cpu_t *cpu)
 
         case DIV:
             if (cpu->debug)
-                printf(MEM_FMT " / " MEM_FMT "\n",
+                printf("%02x / %02x\n",
                     *(cpu->sp - 1), *(cpu->sp));
             t = *(cpu->sp);
             *(cpu->sp) = *(cpu->sp - 1) % *(cpu->sp);
@@ -125,16 +146,16 @@ step(stack_cpu_t *cpu)
 
         case JMP:
             if (cpu->debug)
-                printf("jump " MEM_FMT "\n", *(cpu->sp));
+                printf("jump %02x\n", *(cpu->sp));
             cpu->ip = &cpu->code[*(cpu->sp--)] - 1;
             break;
 
         case JZ:
             if (cpu->debug)
-                printf(MEM_FMT " == 0 ", *(cpu->sp - 1));
+                printf("%02x == 0 ", *(cpu->sp - 1));
             if (*(cpu->sp - 1) == 0) {
                 if (cpu->debug)
-                    printf("jumping to " MEM_FMT "\n", *(cpu->sp));
+                    printf("jumping to %02x\n", *(cpu->sp));
                 cpu->ip = &cpu->code[*(cpu->sp)] - 1;
             } else {
                 if (cpu->debug)
@@ -145,10 +166,10 @@ step(stack_cpu_t *cpu)
 
         case JNZ:
             if (cpu->debug)
-                printf(MEM_FMT " != 0 ", *(cpu->sp - 1));
+                printf("%02x != 0 ", *(cpu->sp - 1));
             if (*(cpu->sp - 1) != 0) {
                 if (cpu->debug)
-                    printf("jumping to " MEM_FMT "\n", *(cpu->sp));
+                    printf("jumping to %02x\n", *(cpu->sp));
                 cpu->ip = &cpu->code[*(cpu->sp)] - 1;
             } else {
                 if (cpu->debug)
@@ -159,7 +180,7 @@ step(stack_cpu_t *cpu)
 
         case CALL:
             if (cpu->debug)
-                printf("calling " MEM_FMT " from " MEM_FMT "\n",
+                printf("calling %02x from %02x\n",
                         *(cpu->sp),
                         (uint32_t)(cpu->ip - cpu->code));
             *(cpu->rp++) = cpu->ip - cpu->code;
@@ -168,7 +189,7 @@ step(stack_cpu_t *cpu)
 
         case RET:
             if (cpu->debug)
-                printf("returning from " MEM_FMT " to " MEM_FMT "\n",
+                printf("returning from %02x to %02x\n",
                         (uint32_t)(cpu->ip - cpu->code),
                         *(cpu->rp - 1));
             cpu->ip = cpu->code + *(--cpu->rp);
@@ -176,7 +197,7 @@ step(stack_cpu_t *cpu)
 
         case DUP:
             if (cpu->debug)
-                printf("dup of " MEM_FMT "\n", *(cpu->sp));
+                printf("dup of %02x\n", *(cpu->sp));
             *(++cpu->sp) = *(cpu->sp);
             break;
 
@@ -200,17 +221,18 @@ step(stack_cpu_t *cpu)
             handle_interrupt(cpu);
             break;
 
-        case PUSH:
-            if (cpu->debug)
-                printf("pushing " MEM_FMT "\n", *(cpu->ip + 1));
-            *(++cpu->sp) = *(++cpu->ip);
-            break;
-
         case DEBUG:
             printf("debugging on\n");
             cpu->debug = true;
             break;
+
+        case PUSH:
+            if (cpu->debug)
+                printf("pushing %02x\n", *(cpu->ip + 1));
+            *(++cpu->sp) = *(++cpu->ip);
+            break;
     }
+    */
 
     //if (cpu->debug)
     //    print_state(cpu);
@@ -224,6 +246,7 @@ handle_interrupt(stack_cpu_t *cpu)
     uint32_t t = *(cpu->sp--);
     uint32_t c;
     irq_t rsrc = *(cpu->sp--);
+    uint8_t kbd_buf[UINT8_MAX];
 
     switch (rsrc) {
         case IRQ_TTY:
@@ -231,13 +254,8 @@ handle_interrupt(stack_cpu_t *cpu)
             break;
 
         case IRQ_KBD:
-            c = readchar(cpu->kbd);
-            if (c == 0x5) {
-                print_state(cpu);
-                c = readchar(cpu->kbd);
-            }
-
-            *(++cpu->sp) = c;
+            keyboard_state(cpu->kbd, kbd_buf);
+            //*(++cpu->sp) = c;
             *(cpu->rp++) = cpu->ip - cpu->code;
             cpu->ip = &cpu->code[t] - 1;
 
@@ -245,7 +263,7 @@ handle_interrupt(stack_cpu_t *cpu)
 
         default:
             if (cpu->debug)
-                printf("unknown resource " MEM_FMT "\n", rsrc);
+                printf("unknown resource %02x\n", rsrc);
     }
 }
 
@@ -263,8 +281,7 @@ print_state(stack_cpu_t *cpu)
     status[2] = '\0';
 
     // code
-    /*
-    for (uint32_t i = 0; i < 128; i++) {
+    for (uint32_t i = 0; i < 160; i++) {
         if (i % w == 0)
             printf("\ncode   %06x: ", i);
 
@@ -275,9 +292,8 @@ print_state(stack_cpu_t *cpu)
             status[1] = '*';
 
         printf("%s", status);
-        printf(MEM_FMT, cpu->code[i]);
+        printf("%02x", cpu->code[i]);
     }
-    */
 
     // data
     for (int i = 0; i < 128; i++) {
@@ -291,7 +307,7 @@ print_state(stack_cpu_t *cpu)
             status[1] = '*';
 
         printf("%s", status);
-        printf(MEM_FMT, cpu->data[i]);
+        printf("%02x", cpu->data[i]);
     }
 
     // stack
@@ -306,7 +322,7 @@ print_state(stack_cpu_t *cpu)
             status[1] = '*';
 
         printf("%s", status);
-        printf(MEM_FMT, cpu->stack[i]);
+        printf("%02x", cpu->stack[i]);
     }
 
     // frames
@@ -317,7 +333,7 @@ print_state(stack_cpu_t *cpu)
             printf(" *");
         else
             printf("  ");
-        printf(MEM_FMT, cpu->frames[i]);
+        printf("%02x", cpu->frames[i]);
     }
 
     printf("\n");

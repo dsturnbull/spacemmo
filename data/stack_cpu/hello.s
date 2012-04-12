@@ -1,8 +1,18 @@
 %define	INPUT	0x0
+%define	KBD_BUF	0x20
 
 %import	"data/stack_cpu/util.s"
 
+_kbd_handler:
+	ret
+
 _main:
+	push	KBD
+	push	KBD_BUF
+	push	_kbd_handler
+	int
+	ret
+
 	push	_prompt
 	call
 

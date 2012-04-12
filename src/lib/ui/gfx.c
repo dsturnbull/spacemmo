@@ -38,50 +38,20 @@ init_gfx(ui_t *ui)
     gfx->eye = calloc(1, sizeof(vec3f));
     gfx->tgt = calloc(1, sizeof(vec3f));
 
-    gfx->w = 1024;
-    gfx->h = 768;
+    gfx->w = 320;
+    gfx->h = 240;
 
     if (AG_InitCore("hello computer", 0) == -1) {
         fprintf(stderr, "%s", AG_GetError());
         return NULL;
     }
 
-    if (false) {
-        if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-            fprintf(stderr, "%s", SDL_GetError());
-            return NULL;
-        }
-
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 16);
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-        const SDL_VideoInfo *info;
-        if ((info = SDL_GetVideoInfo()) == NULL) {
-            fprintf(stderr, "%s", SDL_GetError());
-            return NULL;
-        }
-
-        SDL_Surface *surf;
-        int flags = SDL_HWSURFACE | SDL_OPENGL | SDL_RESIZABLE;
-        if ((surf = SDL_SetVideoMode(gfx->w, gfx->h, info->vfmt->BitsPerPixel,
-                        flags)) == NULL) {
-            fprintf(stderr, "%s", SDL_GetError());
-            return NULL;
-        }
-
-        flags = AG_VIDEO_HWSURFACE | AG_VIDEO_OPENGL | AG_VIDEO_RESIZABLE;
-        if (AG_InitVideoSDL(surf, flags) == -1) {
-            fprintf(stderr, "%s", AG_GetError());
-            return NULL;
-        }
-    } else {
-        // | AG_VIDEO_NOFRAME;
-        int flags = AG_VIDEO_HWSURFACE | AG_VIDEO_DOUBLEBUF | AG_VIDEO_OPENGL
-            | AG_VIDEO_RESIZABLE;
-        if ((AG_InitVideo(gfx->w, gfx->h, 24, flags) == -1)) {
-            fprintf(stderr, "%s", AG_GetError());
-            return NULL;
-        }
+    // | AG_VIDEO_NOFRAME;
+    int flags = AG_VIDEO_HWSURFACE | AG_VIDEO_DOUBLEBUF | AG_VIDEO_OPENGL
+        | AG_VIDEO_RESIZABLE;
+    if ((AG_InitVideo(gfx->w, gfx->h, 24, flags) == -1)) {
+        fprintf(stderr, "%s", AG_GetError());
+        return NULL;
     }
 
     if ((gfx->drv = AGDRIVER(agDriverSw)) == NULL) {
@@ -89,7 +59,7 @@ init_gfx(ui_t *ui)
         return NULL;
     }
 
-    SDL_WM_GrabInput(SDL_GRAB_ON);
+    //SDL_WM_GrabInput(SDL_GRAB_ON);
     //SDL_ShowCursor(0);
 
     init_gfx_ui(gfx);

@@ -35,6 +35,7 @@ cpu_load(cpu_t *cpu, const char *fn)
     stack_cpu_asm(as, fn);
     printf("%lu bytes loaded\n", as->prog_len);
     load_prog(cpu->cpu, as->prog, as->prog_len);
+    print_prog(as);
 }
 
 void

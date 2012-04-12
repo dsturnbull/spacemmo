@@ -12,22 +12,8 @@ init_keyboard()
     return kbd;
 }
 
-uint8_t
-readchar(keyboard_t *kbd)
+void
+keyboard_state(keyboard_t *kbd, uint8_t buf[])
 {
-    if (kbd->input) {
-        return 0;
-    } else {
-        struct termios old_tio, new_tio;
-        tcgetattr(1, &old_tio);
-        new_tio = old_tio;
-        new_tio.c_lflag &= (~ICANON & ~ECHO);
-
-        tcsetattr(1, TCSANOW, &new_tio);
-        uint8_t c = getchar();
-        tcsetattr(1, TCSANOW, &old_tio);
-
-        return c;
-    }
 }
 

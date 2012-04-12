@@ -20,6 +20,9 @@
 #include "src/lib/ui/gfx.h"
 #include "src/lib/ui/input.h"
 #include "src/lib/world.h"
+#include "src/lib/cluster.h"
+#include "src/lib/system.h"
+#include "src/lib/cpu/cpu.h"
 
 client_t *
 init_client()
@@ -66,6 +69,13 @@ init_client_kqueue(client_t *client)
 
     if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set gfx update kevent");
+
+    // register cpu update timer
+    memset(&client->ke, 0, sizeof(struct kevent));
+    EV_SET(&client->ke, 2, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1, NULL);
+
+    if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
+        err(EX_UNAVAILABLE, "set cpu update kevent");
 }
 
 void
@@ -73,7 +83,7 @@ client_loop(client_t *client)
 {
     while (!client->quit) {
         handle_client_events(client);
-        handle_server_events(client->server);
+        //handle_server_events(client->server);
     }
 }
 
@@ -118,6 +128,9 @@ handle_client_events(client_t *client)
     } else if (client->ke.ident == 1) {
         // gfx fired
         update_ui(client->ui, time_delta(FRAME_TIMER));
+    } else if (client->ke.ident == 2) {
+        // cpu fired
+        update_cpus(client);
     }
 
     if (client->quit)
@@ -128,6 +141,19 @@ void
 update_client(client_t *client)
 {
     update_server(client->server);
+}
+
+void
+update_cpus(client_t *client)
+{
+    foreach_cluster(client->server->world, ^(cluster_t *cluster) {
+        foreach_system(cluster, ^(system_t *system) {
+            foreach_entity(system, ^(entity_t *entity) {
+                if (entity->cpu)
+                    cpu_step(entity->cpu);
+            });
+        });
+    });
 }
 
 bool

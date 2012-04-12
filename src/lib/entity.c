@@ -40,9 +40,6 @@ update_entity(entity_t *this, double dt)
     bool *keys = this->input->keys;
     float thrust_amt = 1;
 
-    if (this->cpu)
-        cpu_step(this->cpu);
-
     vec3f *pos = this->pos;
     vec3f *vel = this->vel;
     vec3f *acc = this->acc;

@@ -62,6 +62,7 @@ handle_keypress(input_t *input, AG_DriverEvent *ev)
                 default:
                     break;
             }
+
             break;
 
         case AG_DRIVER_KEY_UP:
