@@ -8,9 +8,10 @@
 
 #include "src/lib/spacemmo.h"
 
-#define STAR_GRID_SIZE 64
+typedef struct ui_st ui_t;
+typedef struct entity_st entity_t;
 
-struct gfx_st {
+typedef struct gfx_st {
     int w, h;
     ui_t *ui;
     AG_Driver *drv;
@@ -18,7 +19,7 @@ struct gfx_st {
     vec3f *eye;
     vec3f *tgt;
     struct ag_mouse *mouse;
-};
+} gfx_t;
 
 gfx_t * init_gfx(ui_t *);
 

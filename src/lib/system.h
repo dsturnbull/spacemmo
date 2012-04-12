@@ -6,7 +6,10 @@
 
 #include "src/lib/spacemmo.h"
 
-struct system_st {
+typedef struct cluster_st cluster_t;
+typedef struct entity_st entity_t;
+
+typedef struct system_st {
     cluster_t *cluster;
 
     size_t entities_size;
@@ -14,7 +17,7 @@ struct system_st {
     entity_t **entities;
 
     vec3f pos, vel, acc;
-};
+} system_t;
 
 system_t * init_system(cluster_t *);
 void update_system(system_t *, double);

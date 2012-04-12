@@ -6,10 +6,17 @@
 #include "src/lib/spacemmo.h"
 #include "src/lib/entity.h"
 
-struct packet_st {
+typedef enum packet_e {
+    P_LOGIN_REQUEST,   
+    P_LOGIN_RESPONSE,  
+    P_ENTITY_REQUEST,  
+    P_ENTITY_RESPONSE, 
+} packet_e;            
+
+typedef struct packet_st {
     packet_e type;
     size_t len;
-};
+} packet_t;
 
 struct login_request_packet_st {
     packet_t packet;

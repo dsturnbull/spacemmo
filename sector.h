@@ -4,8 +4,6 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "src/lib/spacemmo.h"
-
 struct sector_st {
     system_t *system;
 

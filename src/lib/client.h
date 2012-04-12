@@ -14,7 +14,12 @@
 
 #include "src/lib/spacemmo.h"
 
-struct client_st {
+typedef struct entity_st entity_t;
+typedef struct ui_st ui_t;
+typedef struct server_st server_t;
+typedef struct server_conn_st server_conn_t;
+
+typedef struct client_st {
     entity_t *entity;
     ui_t *ui;
     server_t *server;
@@ -29,7 +34,7 @@ struct client_st {
     int kq;
     int server_sock;
     bool quit;
-};
+} client_t;
 
 struct server_conn_st {
     int sock;

@@ -4,7 +4,11 @@
 #include <stdbool.h>
 #include "src/lib/spacemmo.h"
 
-struct entity_st {
+typedef struct input_st input_t;
+typedef struct system_st system_t;
+typedef struct cpu_st cpu_t;
+
+typedef struct entity_st {
     entity_id_t id;
 
     double birth;
@@ -12,11 +16,12 @@ struct entity_st {
 
     vec3f *pos, *vel, *acc;
     vec3f *ypr;
+    long mass;
 
     input_t *input;
     system_t *system;
-    computer_t *computer;
-};
+    cpu_t *cpu;
+} entity_t;
 
 entity_t * init_entity(system_t *);
 void update_entity(entity_t *, double);

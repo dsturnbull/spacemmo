@@ -6,11 +6,14 @@
 
 #include "src/lib/spacemmo.h"
 
-struct world_st {
+typedef struct cluster_st cluster_t;
+typedef struct entity_st entity_t;
+
+typedef struct world_st {
     size_t clusters_size;
     size_t cluster_count;
     cluster_t **clusters;
-};
+} world_t;
 
 world_t * init_world();
 void update_world(world_t *, double);

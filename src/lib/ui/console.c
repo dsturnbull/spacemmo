@@ -13,6 +13,7 @@
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
 #include "src/lib/entity.h"
+#include "src/lib/cpu/cpu.h"
 
 console_t *
 init_console(ui_t *ui, char *name)
@@ -60,7 +61,7 @@ process_input(console_t *console)
 
     const char *buf;
 
-    while (true) {
+    while (!client->quit) {
         int count = 0;
 
         buf = el_gets(console->el, &count);
@@ -101,13 +102,37 @@ process_input(console_t *console)
                 cmd_thrust(console, argc, argv);
                 break;
 
+            case CMD_CPU_LOAD:
+                cmd_cpu_load(console, argc, argv);
+                break;
+
+            case CMD_CPU_START:
+                cmd_cpu_start(console, argc, argv);
+                break;
+
+            case CMD_CPU_STOP:
+                cmd_cpu_stop(console, argc, argv);
+                break;
+
+            case CMD_CPU_RESET:
+                cmd_cpu_reset(console, argc, argv);
+                break;
+
+            case CMD_CPU_STEP:
+                cmd_cpu_step(console, argc, argv);
+                break;
+
+            case CMD_CPU_STATUS:
+                cmd_cpu_status(console, argc, argv);
+                break;
+
             case CMD_QUIT:
-                console->ui->client->quit = true;
+                client->quit = true;
                 break;
         }
     }
 
-    console->ui->client->quit = true;
+    client->quit = true;
 }
 
 cmd_t
@@ -149,7 +174,7 @@ cmd_scan(console_t *console, int argc, char *argv[])
     foreach_cluster(world, ^(cluster_t *cluster) {
         foreach_system(cluster, ^(system_t *system) {
             foreach_entity(system, ^(entity_t *entity) {
-                fprintf(stderr, "ent %lu \n", entity->id);
+                fprintf(stderr, "ent %u \n", entity->id);
                 fprintf(stderr, "\tpos %g %g %g\n",
                     entity->pos->x, entity->pos->y, entity->pos->z);
                 fprintf(stderr, "\tvel %g %g %g\n",
@@ -182,6 +207,48 @@ cmd_thrust(console_t *console, int argc, char *argv[])
         entity->acc->y = day;
         entity->acc->z = daz;
     }
+}
+
+void
+cmd_cpu_load(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_load(cpu, argv[1]);
+}
+
+void
+cmd_cpu_start(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_start(cpu);
+}
+
+void
+cmd_cpu_stop(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_stop(cpu);
+}
+
+void
+cmd_cpu_reset(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_reset(cpu);
+}
+
+void
+cmd_cpu_step(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_step(cpu);
+}
+
+void
+cmd_cpu_status(console_t *console, int argc, char *argv[])
+{
+    cpu_t *cpu = console->ui->client->entity->cpu;
+    cpu_status(cpu);
 }
 
 void

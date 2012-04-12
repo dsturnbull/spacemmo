@@ -6,7 +6,7 @@
 
 #include "src/lib/entity.h"
 #include "src/lib/system.h"
-#include "src/lib/computer.h"
+#include "src/lib/cpu/cpu.h"
 #include "src/lib/ui/input.h"
 
 entity_id_t last_id = 0;
@@ -26,6 +26,7 @@ init_entity(system_t *system)
     this->vel = calloc(1, sizeof(vec3f));
     this->acc = calloc(1, sizeof(vec3f));
     this->ypr = calloc(1, sizeof(vec3f));
+    this->mass = 1e3;
 
     this->input = init_input(NULL);
 
@@ -36,11 +37,11 @@ init_entity(system_t *system)
 void
 update_entity(entity_t *this, double dt)
 {
-    if (this->computer)
-        update_computer(this->computer, dt);
-
     bool *keys = this->input->keys;
     float thrust_amt = 1;
+
+    if (this->cpu)
+        cpu_step(this->cpu);
 
     vec3f *pos = this->pos;
     vec3f *vel = this->vel;
@@ -134,5 +135,10 @@ update_entity_state(entity_t *this, entity_t *other)
     memcpy(&this->vel, &other->vel, sizeof(vec3f));
     memcpy(&this->acc, &other->acc, sizeof(vec3f));
     this->dead = other->dead;
+}
+
+void
+entity_slot_set(entity_t *this, entity_t *other)
+{
 }
 

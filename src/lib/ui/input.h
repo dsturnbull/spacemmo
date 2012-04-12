@@ -8,10 +8,12 @@
 
 #include "src/lib/spacemmo.h"
 
-struct input_st {
+typedef struct ui_st ui_t;
+
+typedef struct input_st {
     ui_t *ui;
-    bool keys[255];
-};
+    bool keys[UINT8_MAX];
+} input_t;
 
 input_t * init_input(ui_t *);
 int handle_mouse(input_t *, AG_DriverEvent *);

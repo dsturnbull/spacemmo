@@ -4,12 +4,19 @@ client_t
                 vec3f pos
                 vec3f vel
                 vec3f acc
-
                 input_t input
                 system_t system
+
                 computer_t computer
                         computer_id_t id
-			http://www.generation5.org/content/2003/data/gahelloworld.cpp
+			cpu_t cpu
+
+		bool component
+
+		slot_t slots[]
+			slot_type_t type
+			slot_size_t size
+			entity_t entity
 
         server_t server
                 client_t clients[]

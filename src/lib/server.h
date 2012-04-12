@@ -13,7 +13,10 @@
 
 #include "src/lib/spacemmo.h"
 
-struct server_st {
+typedef struct world_st world_t;
+typedef struct client_conn_st client_conn_t;
+
+typedef struct server_st {
     world_t *world;
     client_conn_t **clients;
     int client_count;
@@ -26,7 +29,7 @@ struct server_st {
     struct kevent ke;
     int kq;
     int sock;
-};
+} server_t;
 
 struct client_conn_st {
     int sock;

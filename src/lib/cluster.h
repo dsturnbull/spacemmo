@@ -6,7 +6,10 @@
 
 #include "src/lib/spacemmo.h"
 
-struct cluster_st {
+typedef struct system_st system_t;
+typedef struct world_st world_t;
+
+typedef struct cluster_st {
     world_t *world;
 
     size_t systems_size;
@@ -14,7 +17,7 @@ struct cluster_st {
     system_t **systems;
 
     vec3f pos;
-};
+} cluster_t;
 
 cluster_t * init_cluster(world_t *);
 void update_cluster(cluster_t *, double);

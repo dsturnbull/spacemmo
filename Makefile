@@ -37,7 +37,7 @@ SV_CFLAGS+=-flto $(OPT)
 SV_LDFLAGS=$(LDFLAGS)
 
 LIB=libspacemmo.dylib
-LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c)
+LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c)
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
 
 SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS)

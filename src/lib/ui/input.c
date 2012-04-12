@@ -9,33 +9,6 @@
 #include "src/lib/ui/gfx.h"
 #include "src/lib/ui/input.h"
 
-/*
-bool *keys = client->ui->input->keys;
-float thrust_amt = 0.1;
-vec3f *acc = &client->entity->acc;
-
-if (keys['w'])
-    acc->z += thrust_amt;
-
-if (keys['s'])
-    acc->z -= thrust_amt;
-
-if (keys['a'])
-    acc->x -= thrust_amt;
-
-if (keys['d'])
-    acc->x += thrust_amt;
-
-if (keys['q'])
-    acc->y += thrust_amt;
-
-if (keys['z'])
-    acc->y -= thrust_amt;
-
-if (keys[' '])
-    acc->x = acc->y = acc->z = 0.0;
-*/
-
 input_t *
 init_input(ui_t *ui)
 {
@@ -47,7 +20,7 @@ init_input(ui_t *ui)
 int
 handle_mouse(input_t *input, AG_DriverEvent *ev)
 {
-    if (!input->ui || !input->ui->gfx)
+    if (!input->ui && !input->ui->gfx)
         return 0;
 
     int x, y;

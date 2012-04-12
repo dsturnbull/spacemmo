@@ -5,6 +5,8 @@
 
 #include "src/lib/spacemmo.h"
 
+typedef struct gfx_st gfx_t;
+
 void init_skybox(char *);
 void render_skybox(gfx_t *, GLuint);
 
