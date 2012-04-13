@@ -24,7 +24,7 @@ ttyp(tty_t *tty, uint8_t c)
 
         new_pos = (cur_row + 1) * SCREEN_WIDTH;
         tty->cursor = &tty->display[new_pos];
-    } else if (c == 0x7f) {
+    } else if (c == 0x8) {
         *(--tty->cursor) = '\0';
         while (*(tty->cursor - 1) == '\0')
             *(tty->cursor--) = '\0';

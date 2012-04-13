@@ -13,6 +13,7 @@ typedef struct ui_st ui_t;
 typedef struct input_st {
     ui_t *ui;
     bool keys[UINT8_MAX];
+    int mod;
 } input_t;
 
 input_t * init_input(ui_t *);

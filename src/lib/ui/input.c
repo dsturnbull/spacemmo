@@ -50,6 +50,7 @@ handle_mouse(input_t *input, AG_DriverEvent *ev)
 int
 handle_keypress(input_t *input, AG_DriverEvent *ev)
 {
+    input->mod = input->ui->gfx->drv->kbd->modState;
     switch (ev->type) {
         case AG_DRIVER_KEY_DOWN:
             input->keys[ev->data.key.ks] = true;

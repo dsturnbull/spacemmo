@@ -37,6 +37,12 @@ SV_OBJS=$(SV_SRCS:%.c=%.o)
 SV_CFLAGS+=-flto $(OPT)
 SV_LDFLAGS=$(LDFLAGS)
 
+MON=mon
+MON_SRCS=src/mon.c
+MON_OBJS=$(MON_SRCS:%.c=%.o)
+MON_CFLAGS+=-flto $(OPT)
+MON_LDFLAGS=$(LDFLAGS)
+
 LIB=libspacemmo.dylib
 LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c)
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
@@ -47,7 +53,7 @@ DEPS=$(SRCS:%.c=%.d)
 
 SDLMAIN=src/SDLMain.o
 
-all: $(SDLMAIN) $(LIB) $(CL) $(SV) $(CLI)
+all: $(SDLMAIN) $(LIB) $(CL) $(SV) $(CLI) $(MON)
 
 $(SDLMAIN):
 	$(CC) $(CFLAGS) -I/usr/local/include/SDL -c $(@:%.o=%.m) -o $@
@@ -61,13 +67,16 @@ $(SV): $(SV_OBJS) $(LIB)
 $(CLI): $(CLI_OBJS) $(LIB)
 	$(CC) $(CLI_CFLAGS) $(CLI_LDFLAGS) -L. -lspacemmo $(CLI_OBJS) -o $@
 
+$(MON): $(MON_OBJS) $(LIB)
+	$(CC) $(MON_CFLAGS) $(MON_LDFLAGS) -L. -lspacemmo $(MON_OBJS) -o $@
+
 $(LIB): $(LIB_OBJS)
 	libtool -dynamic -o $@ $(LIBTOOL_FLAGS) $(LIB_OBJS)
 
 clean:
 	rm -f $(OBJS)
 	rm -f $(DEPS)
-	rm -f $(CL) $(SV) $(CLI) $(LIB)
+	rm -f $(CL) $(SV) $(CLI) $(MON) $(LIB)
 
 analyze:
 	$(CC) $(CFLAGS) --analyze $(SRCS)
