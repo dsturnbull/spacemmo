@@ -1,6 +1,9 @@
 #ifndef __src_lib_cpu_cpu_h
 #define __src_lib_cpu_cpu_h
 
+#include <stdio.h>
+#include <stdbool.h>
+
 typedef struct stack_cpu_st stack_cpu_t;
 typedef struct input_st input_t;
 typedef struct tty_st tty_t;
@@ -17,6 +20,7 @@ typedef struct cpu_st {
     keyboard_t *kbd;
     tty_t *tty;
     comm_port_t *comm_ports;
+    bool *halted;
 } cpu_t;
 
 cpu_t * init_cpu(cpu_e);

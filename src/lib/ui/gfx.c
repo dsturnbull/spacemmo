@@ -73,7 +73,7 @@ init_gfx_ui(gfx_t *this)
     this->mouse = this->drv->mouse;
     init_gfx_menu(this);
     //init_skybox("data/space.png");
-    //init_skybox("data/spheremapgalaxyasteroid.png");
+    init_skybox("data/spheremapgalaxyasteroid.png");
     //init_skybox("data/SkyBox-Clouds-Few-Dawn.png");
 }
 
@@ -147,6 +147,7 @@ update_gfx(gfx_t *gfx, double dt)
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    /*
     AG_BeginRendering(gfx->drv);
     {
         glPushMatrix();
@@ -163,8 +164,8 @@ update_gfx(gfx_t *gfx, double dt)
                 glLoadIdentity();
 
                 orient_eye(gfx);
-                //render_skybox(gfx, 0);
-                //render_starfield(gfx, dt);
+                render_skybox(gfx, 0);
+                render_starfield(gfx, dt);
             }
             glPopMatrix();
         }
@@ -184,6 +185,7 @@ update_gfx(gfx_t *gfx, double dt)
     }
 
     AG_EndRendering(gfx->drv);
+    */
 
     AG_DriverEvent ev;
     while (AG_PendingEvents(gfx->drv) > 0)

@@ -17,7 +17,7 @@ ttyp(tty_t *tty, uint8_t c)
     // TODO ansi
     // TODO scroll the screen
 
-    if (c == 0xa) {
+    if (c == 0xa || c == 0xd) {
         int cur_pos = tty->cursor - &tty->display[0];
         int cur_row = cur_pos / SCREEN_WIDTH;
         int new_pos = 0;

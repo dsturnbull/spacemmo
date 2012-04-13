@@ -17,6 +17,7 @@
 int
 main(int argc, char *argv[])
 {
+    FILE *log = fopen("/tmp/cpu.log", "a+");
     init_spacemmo();
 
     client_t *client    = init_client();
@@ -40,6 +41,8 @@ main(int argc, char *argv[])
     client->entity = find_entity(client->server->world, 2);
     client->entity->cpu->kbd->input = init_input(client->ui);
     client->ui->input = client->entity->cpu->kbd->input;
+    cpu_load(client->entity->cpu, "data/stack_cpu/hello.s");
+    cpu_start(client->entity->cpu);
 
     init_gfx_ship_ui(client->ui->gfx, client->entity);
 
@@ -49,6 +52,7 @@ main(int argc, char *argv[])
 
     client_loop(client);
     shutdown_console(client->ui->console);
+    fclose(log);
 
     return 0;
 }

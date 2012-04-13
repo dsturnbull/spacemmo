@@ -16,12 +16,14 @@ init_cpu(cpu_e type)
     switch (type) {
         case CPU_STACK_CPU:
             this->cpu = init_stack_cpu();
-            this->cpu->debug = true;
             this->kbd = this->cpu->kbd;
             this->tty = this->cpu->tty;
             this->comm_ports = this->cpu->comm_ports;
+            this->halted = &this->cpu->halted;
             break;
     }
+
+    /* this->cpu->debug = true; */
 
     return this;
 }
@@ -57,8 +59,8 @@ cpu_stop(cpu_t *cpu)
 void
 cpu_step(cpu_t *cpu)
 {
-    if (!cpu->cpu->halted)
-        step(cpu->cpu);
+    step(cpu->cpu);
+    //print_state(cpu->cpu);
 }
 
 void

@@ -72,7 +72,7 @@ init_client_kqueue(client_t *client)
 
     // register cpu update timer
     memset(&client->ke, 0, sizeof(struct kevent));
-    EV_SET(&client->ke, 2, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1, NULL);
+    EV_SET(&client->ke, 2, EVFILT_TIMER, EV_ADD, NOTE_NSECONDS, 1, NULL);
 
     if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set cpu update kevent");
@@ -130,8 +130,9 @@ handle_client_events(client_t *client)
         update_ui(client->ui, time_delta(FRAME_TIMER));
     } else if (client->ke.ident == 2) {
         // cpu fired
-        update_cpus(client);
     }
+
+    update_cpus(client);
 
     if (client->quit)
         return;
@@ -149,8 +150,9 @@ update_cpus(client_t *client)
     foreach_cluster(client->server->world, ^(cluster_t *cluster) {
         foreach_system(cluster, ^(system_t *system) {
             foreach_entity(system, ^(entity_t *entity) {
-                if (entity->cpu)
+                if (entity->cpu && !*(entity->cpu->halted)) {
                     cpu_step(entity->cpu);
+                }
             });
         });
     });

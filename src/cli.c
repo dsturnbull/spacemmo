@@ -6,26 +6,16 @@
 #include "src/lib/client.h"
 #include "src/lib/server.h"
 #include "src/lib/world.h"
+#include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 #include "src/lib/cpu/cpu.h"
-#include "src/lib/cpu/stack_cpu.h"
-#include "src/lib/cpu/hardware/tty.h"
+#include "src/lib/cpu/hardware/keyboard.h"
 
 int
 main(int argc, char *argv[])
 {
-    cpu_t *cpu = init_cpu(CPU_STACK_CPU);
-    cpu_load(cpu, "data/stack_cpu/test.s");
-    cpu_start(cpu);
-
-    while (!cpu->cpu->halted)
-        cpu_step(cpu);
-
-    cpu_status(cpu);
-
-    return 0;
-
+    FILE *log = fopen("/tmp/cpu.log", "a+");
     init_spacemmo();
 
     client_t *client    = init_client();
@@ -46,6 +36,8 @@ main(int argc, char *argv[])
     init_default_world(client->server->world);
 
     client->entity = find_entity(client->server->world, 2);
+    cpu_load(client->entity->cpu, "data/stack_cpu/hello.s");
+    cpu_start(client->entity->cpu);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         client_loop(client);
@@ -53,6 +45,7 @@ main(int argc, char *argv[])
 
     process_input(client->ui->console);
     shutdown_console(client->ui->console);
+    fclose(log);
 
     return 0;
 }

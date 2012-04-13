@@ -1,6 +1,6 @@
 CC=clang
 
-#OPT=-O4
+#OPT=-O3
 OPT=-g
 CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch
 CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare
@@ -10,7 +10,8 @@ CFLAGS+=$(shell pkg-config libpng --cflags)
 CFLAGS+=$(shell agar-vg-config --cflags)
 CFLAGS+=$(OPT) -mtune=native -fcommon -pipe
 
-LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning -dynamic -flat_namespace
+LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning	\
+	       -dynamic -flat_namespace
 LIBTOOL_FLAGS+=-lag_core -lag_gui -lag_dev
 
 LDFLAGS+=-L. -ledit -L/usr/X11/lib -lfreetype

@@ -10,69 +10,67 @@
 stack_cpu_asm_t *
 init_stack_cpu_asm()
 {
-    stack_cpu_asm_t *as = malloc(sizeof(stack_cpu_asm_t));
-    as->labels_size = 1024;
-    as->label_count = 0;
-    as->labels = malloc(as->labels_size *
+    stack_cpu_asm_t *stack_cpu_asm = malloc(sizeof(stack_cpu_asm_t));
+    stack_cpu_asm->labels_size = 1024;
+    stack_cpu_asm->label_count = 0;
+    stack_cpu_asm->labels = malloc(stack_cpu_asm->labels_size *
             sizeof(struct label *));
 
-    as->missings_size = 1024;
-    as->missing_count = 0;
-    as->missing = malloc(as->labels_size *
+    stack_cpu_asm->missings_size = 1024;
+    stack_cpu_asm->missing_count = 0;
+    stack_cpu_asm->missing = malloc(stack_cpu_asm->labels_size *
             sizeof(struct label *));
 
-    as->data_size = 1024;
-    as->data_count = 0;
-    as->data = malloc(as->data_size *
+    stack_cpu_asm->data_size = 1024;
+    stack_cpu_asm->data_count = 0;
+    stack_cpu_asm->data = malloc(stack_cpu_asm->data_size *
             sizeof(struct data *));
 
-    as->prog = calloc(CPU_DATA - 1, sizeof(uint32_t));
-    as->ip = as->prog;
+    stack_cpu_asm->prog = calloc(CPU_DATA - 1, sizeof(uint32_t));
+    stack_cpu_asm->ip = stack_cpu_asm->prog;
 
-    return as;
+    return stack_cpu_asm;
 }
 
 size_t
-stack_cpu_asm(stack_cpu_asm_t *as, const char *fn)
+stack_cpu_asm(stack_cpu_asm_t *stack_cpu_asm, const char *fn)
 {
     // make room for jumping to _main
-    //as->ip += 4;
+    stack_cpu_asm->ip += 4;
 
     // assemble
-    parse_file(as, fn);
-    as->prog_len = as->ip - as->prog;
+    parse_file(stack_cpu_asm, fn);
+    stack_cpu_asm->prog_len = stack_cpu_asm->ip - stack_cpu_asm->prog;
 
     // replace label locations etc
-    replace_sentinels(as);
+    replace_sentinels(stack_cpu_asm);
 
     // jump to main
-    /*
     uint32_t main_loc;
 
     size_t i;
-    for (i = 0; i < as->label_count; i++) {
-        if (strcmp(as->labels[i]->name, "main") == 0) {
-            main_loc = as->labels[i]->addr;
+    for (i = 0; i < stack_cpu_asm->label_count; i++) {
+        if (strcmp(stack_cpu_asm->labels[i]->name, "main") == 0) {
+            main_loc = stack_cpu_asm->labels[i]->addr;
             break;
         }
     }
 
-    as->ip = as->prog;
-    push(as, NULL, PUSH, 0);
-    push(as, NULL, main_loc, 0);
-    push(as, NULL, CALL, 0);
-    push(as, NULL, HLT, 0);
-    */
+    stack_cpu_asm->ip = stack_cpu_asm->prog;
+    push(stack_cpu_asm, NULL, PUSH, 0);
+    push(stack_cpu_asm, NULL, main_loc, 0);
+    push(stack_cpu_asm, NULL, CALL, 0);
+    push(stack_cpu_asm, NULL, HLT, 0);
 
-    free(as->labels);
-    free(as->missing);
-    free(as->data);
+    free(stack_cpu_asm->labels);
+    free(stack_cpu_asm->missing);
+    free(stack_cpu_asm->data);
 
-    return as->prog_len;
+    return stack_cpu_asm->prog_len;
 }
 
 void
-parse_file(stack_cpu_asm_t *as, const char *fn)
+parse_file(stack_cpu_asm_t *stack_cpu_asm, const char *fn)
 {
     // load asm file
     struct stat st;
@@ -94,13 +92,13 @@ parse_file(stack_cpu_asm_t *as, const char *fn)
     char *line;
     size_t lineno = 0;
 
-    define_constant(as, "KBD", IRQ_KBD);
-    define_constant(as, "OUT", IRQ_TTY);
-    define_constant(as, "CODE_PAGE", CPU_CODE);
-    define_constant(as, "DATA_PAGE", CPU_DATA);
-    define_constant(as, "STACK_PAGE", CPU_STACK);
-    define_constant(as, "FRAMES_PAGE", CPU_FRAMES);
-    define_constant(as, "IO_PAGE", CPU_IO);
+    define_constant(stack_cpu_asm, "KBD", IRQ_KBD);
+    define_constant(stack_cpu_asm, "OUT", IRQ_TTY);
+    define_constant(stack_cpu_asm, "CODE_PAGE", CPU_CODE);
+    define_constant(stack_cpu_asm, "DATA_PAGE", CPU_DATA);
+    define_constant(stack_cpu_asm, "STACK_PAGE", CPU_STACK);
+    define_constant(stack_cpu_asm, "FRAMES_PAGE", CPU_FRAMES);
+    define_constant(stack_cpu_asm, "IO_PAGE", CPU_IO);
 
     while ((line = strsep(&inp, "\n")) != NULL && inp != NULL) {
         lineno++;
@@ -109,7 +107,7 @@ parse_file(stack_cpu_asm_t *as, const char *fn)
         char *ops = strsep(&line, "\t");
 
         if (ops[0] == '_') {
-            make_label(as, ops);
+            make_label(stack_cpu_asm, ops);
             continue;
         }
 
@@ -120,14 +118,14 @@ parse_file(stack_cpu_asm_t *as, const char *fn)
             char *name = strsep(&line, "\t");;
             uint32_t value;
             sscanf(strsep(&line, "\t"), "%x", &value);
-            define_constant(as, name, value);
+            define_constant(stack_cpu_asm, name, value);
             continue;
         }
 
         if (strcmp(ops, "%import") == 0) {
             char *fn = strsep(&line, "\t");
             fn++; fn[strlen(fn) - 1] = '\0';
-            parse_file(as, fn);
+            parse_file(stack_cpu_asm, fn);
             continue;
         }
 
@@ -136,44 +134,16 @@ parse_file(stack_cpu_asm_t *as, const char *fn)
 
         op_t op = parse_op(ops);
 
-        uint64_t value;
-        ins_t ins;
+        char *data;
+        uint32_t addr;
 
         switch (op) {
             case PUSH:
-                value = read_value(as, strsep(&line, "\t"), as->ip);
-
-                if (value <= 0xff) {
-                    ins.op = op;
-                    ins.opt = 0;
-                    memcpy(as->ip++, &ins, sizeof(ins_t));
-                    memcpy(as->ip, &value, sizeof(uint8_t));
-                    as->ip += sizeof(uint8_t);
-                } else if (value <= 0xffff) {
-                    ins.op = op;
-                    ins.opt = 1;
-                    memcpy(as->ip++, &ins, sizeof(ins_t));
-                    memcpy(as->ip, &value, sizeof(uint16_t));
-                    as->ip += sizeof(uint16_t);
-                } else if (value <= 0xffffffff) {
-                    ins.op = op;
-                    ins.opt = 2;
-                    memcpy(as->ip++, &ins, sizeof(ins_t));
-                    memcpy(as->ip, &value, sizeof(uint32_t));
-                    as->ip += sizeof(uint32_t);
-                } else if (value <= 0xffffffffffffffff) {
-                    ins.op = op;
-                    ins.opt = 3;
-                    memcpy(as->ip++, &ins, sizeof(ins_t));
-                    memcpy(as->ip, &value, sizeof(uint64_t));
-                    as->ip += sizeof(uint64_t);
-                }
+                push(stack_cpu_asm, &line, op, 1);
                 break;
 
             default:
-                ins.op = op;
-                ins.opt = 0;
-                memcpy(as->ip++, &ins, sizeof(ins_t));
+                push(stack_cpu_asm, NULL, op, 0);
                 break;
             }
     }
@@ -181,14 +151,14 @@ parse_file(stack_cpu_asm_t *as, const char *fn)
     free(inp);
 }
 
-uint64_t
-read_value(stack_cpu_asm_t *as, char *s, uint8_t *ip)
+uint32_t
+read_value(stack_cpu_asm_t *stack_cpu_asm, char *s, uint32_t *ip)
 {
-    uint64_t arg = 0;
+    uint32_t arg = 0;
 
     if (s[0] == '0' && s[1] == 'x') {
         // memory address
-        sscanf(s, "%llx", &arg);
+        sscanf(s, "%x", &arg);
 
     } else if (s[0] == 'C' && s[1] == 'P' && s[2] == 'U') {
         // const
@@ -199,14 +169,14 @@ read_value(stack_cpu_asm_t *as, char *s, uint8_t *ip)
         // pointer
         s++;
         s[strlen(s)] = '\0';
-        sscanf(s, "%llx", &arg);
+        sscanf(s, "%x", &arg);
 
     } else if (s[0] >= 'A' && s[0] <= 'Z') {
         // constant
         size_t i;
-        for (i = 0; i < as->label_count; i++) {
-            if (strcmp(as->labels[i]->name, s) == 0) {
-                arg = as->labels[i]->addr;
+        for (i = 0; i < stack_cpu_asm->label_count; i++) {
+            if (strcmp(stack_cpu_asm->labels[i]->name, s) == 0) {
+                arg = stack_cpu_asm->labels[i]->addr;
                 break;
             }
         }
@@ -222,21 +192,21 @@ read_value(stack_cpu_asm_t *as, char *s, uint8_t *ip)
         }
 
         size_t i;
-        for (i = 0; i < as->label_count; i++) {
-            if (strcmp(as->labels[i]->name, s) == 0) {
-                label = as->labels[i];
+        for (i = 0; i < stack_cpu_asm->label_count; i++) {
+            if (strcmp(stack_cpu_asm->labels[i]->name, s) == 0) {
+                label = stack_cpu_asm->labels[i];
                 break;
             }
         }
 
         if (label) {
-            arg = as->labels[i]->addr;
+            arg = stack_cpu_asm->labels[i]->addr;
         } else {
-            as->missing[as->missing_count] =
-                malloc(sizeof(struct label));
-            as->missing[as->missing_count]->addr = ip - as->prog;
-            as->missing[as->missing_count]->name = strdup(s);
-            as->missing_count++;
+            int i = stack_cpu_asm->missing_count;
+            stack_cpu_asm->missing[i] = malloc(sizeof(struct label));
+            stack_cpu_asm->missing[i]->addr = ip - stack_cpu_asm->prog;
+            stack_cpu_asm->missing[i]->name = strdup(s);
+            stack_cpu_asm->missing_count++;
             arg = 0xdeadbeef;
         }
     }
@@ -245,26 +215,39 @@ read_value(stack_cpu_asm_t *as, char *s, uint8_t *ip)
 }
 
 void
-define_constant(stack_cpu_asm_t *as, char *name, uint32_t value)
+push(stack_cpu_asm_t *stack_cpu_asm, char **line, uint32_t op, size_t n)
 {
-    as->labels[as->label_count] = malloc(sizeof(struct label));
-    as->labels[as->label_count]->name = strdup(name);
-    as->labels[as->label_count]->addr = value;
-    as->label_count++;
+    *(stack_cpu_asm->ip)++ = op;
+    for (size_t i = 0; i < n; i++) {
+        char *s  = strsep(line, "\t");
+        uint32_t arg = read_value(stack_cpu_asm, s, stack_cpu_asm->ip);
+        *(stack_cpu_asm->ip)++ = arg;
+    }
 }
 
 void
-make_label(stack_cpu_asm_t *as, char *s)
+define_constant(stack_cpu_asm_t *stack_cpu_asm, char *name, uint32_t value)
+{
+    int i = stack_cpu_asm->label_count;
+    stack_cpu_asm->labels[i] = malloc(sizeof(struct label));
+    stack_cpu_asm->labels[i]->name = strdup(name);
+    stack_cpu_asm->labels[i]->addr = value;
+    stack_cpu_asm->label_count++;
+}
+
+void
+make_label(stack_cpu_asm_t *stack_cpu_asm, char *s)
 {
     // chomp
     s++; s[strlen(s) - 1] = '\0';
 
-    as->labels[as->label_count] = malloc(sizeof(struct label));
-    as->labels[as->label_count]->name = strdup(s);
-    as->labels[as->label_count]->addr = as->ip - as->prog;
-    /* printf("%s == %x\n", s, */
-    /*         as->labels[as->label_count]->addr); */
-    as->label_count++;
+    int i = stack_cpu_asm->label_count;
+    stack_cpu_asm->labels[i] = malloc(sizeof(struct label));
+    stack_cpu_asm->labels[i]->name = strdup(s);
+    stack_cpu_asm->labels[i]->addr = stack_cpu_asm->ip - stack_cpu_asm->prog;
+    /* printf("%s == " MEM_FMT "\n", s, */
+    /*         stack_cpu_asm->labels[i]->addr); */
+    stack_cpu_asm->label_count++;
 }
 
 op_t
@@ -277,6 +260,7 @@ parse_op(char *op)
     GET_CONST(SUB);
     GET_CONST(MUL);
     GET_CONST(DIV);
+    GET_CONST(AND);
     GET_CONST(JMP);
     GET_CONST(JZ);
     GET_CONST(JNZ);
@@ -311,18 +295,25 @@ normalise_line(char **line)
 }
 
 void
-replace_sentinels(stack_cpu_asm_t *as)
+replace_sentinels(stack_cpu_asm_t *stack_cpu_asm)
 {
-    for (size_t i = 0; i < as->prog_len; i++) {
-        if (as->prog[i] == 0xdeadbeef) {
+    for (size_t i = 0; i < stack_cpu_asm->prog_len; i++) {
+        if (stack_cpu_asm->prog[i] == 0xdeadbeef) {
             bool found = false;
-            for (size_t j = 0; j < as->missing_count; j++) {
-                if (as->missing[j]->addr == (uint32_t)i) {
-                    for (size_t n = 0; n < as->label_count; n++) {
-                        if (strcmp(as->labels[n]->name,
-                                    as->missing[j]->name) == 0) {
+            /* printf(MEM_FMT " is deadbeef\n", i); */
+            for (size_t j = 0; j < stack_cpu_asm->missing_count; j++) {
+                if (stack_cpu_asm->missing[j]->addr == (uint32_t)i) {
+                    /* printf(MEM_FMT " found\n", */
+                    /*         stack_cpu_asm->missing[j]->addr); */
+                    for (size_t n = 0; n < stack_cpu_asm->label_count; n++) {
+                        if (strcmp(stack_cpu_asm->labels[n]->name,
+                                    stack_cpu_asm->missing[j]->name) == 0) {
+                            /* printf("%s == %s\n", */
+                            /*         stack_cpu_asm->labels[n]->name, */
+                            /*         stack_cpu_asm->missing[j]->name); */
                             found = true;
-                            as->prog[i] = as->labels[n]->addr;
+                            stack_cpu_asm->prog[i] =
+                                stack_cpu_asm->labels[n]->addr;
                         }
                     }
                 }
@@ -335,17 +326,13 @@ replace_sentinels(stack_cpu_asm_t *as)
 }
 
 void
-print_prog(stack_cpu_asm_t *as)
+print_prog(stack_cpu_asm_t *stack_cpu_asm)
 {
-    uint8_t *p = as->prog;
-    for (size_t i = 0; i < as->prog_len; i += 16) {
-        printf("%08x: ", (uint32_t)i);
+    uint32_t *p = stack_cpu_asm->prog;
+    for (size_t i = 0; i < stack_cpu_asm->prog_len; i += 16) {
+        printf(MEM_FMT ": ", (uint32_t)i);
         for (int j = 0; j < 16; j++) {
-            for (int i = 0; i < 8; i++) {
-                printf("%i", ((*p << i) & 0x80) != 0);
-            }
-            printf(" ");
-            p++;
+            printf(MEM_FMT " ", *(p++));
         }
         printf("\n");
     }
