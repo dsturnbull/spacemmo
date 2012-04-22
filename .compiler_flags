@@ -1,0 +1,1 @@
+-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch -Wno-unused-variable -Wno-unused-parameter -Wunused-function -std=c11 -I. -g -mtune=native -fcommon -pipe

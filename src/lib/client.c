@@ -150,8 +150,8 @@ update_cpus(client_t *client)
     foreach_cluster(client->server->world, ^(cluster_t *cluster) {
         foreach_system(cluster, ^(system_t *system) {
             foreach_entity(system, ^(entity_t *entity) {
-                if (entity->cpu && !*(entity->cpu->halted)) {
-                    cpu_step(entity->cpu);
+                if (entity->cpu) {
+                    run_cpu(entity->cpu);
                 }
             });
         });

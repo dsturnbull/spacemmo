@@ -55,6 +55,7 @@ init_default_world(world_t *world)
     earth->pos->x = 1.496e9;
 
     entity_t *engine = init_entity(sol_system);
-    engine->cpu = init_cpu(CPU_STACK_CPU);
+    engine->cpu = init_cpu();
+    engine->cpu->debug = true;
 }
 

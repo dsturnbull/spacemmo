@@ -12,7 +12,6 @@
 #include "src/lib/ui/gfx.h"
 #include "src/lib/ui/input.h"
 #include "src/lib/cpu/cpu.h"
-#include "src/lib/cpu/hardware/keyboard.h"
 
 int
 main(int argc, char *argv[])
@@ -39,10 +38,10 @@ main(int argc, char *argv[])
     init_default_world(client->server->world);
 
     client->entity = find_entity(client->server->world, 2);
-    client->entity->cpu->kbd->input = init_input(client->ui);
-    client->ui->input = client->entity->cpu->kbd->input;
-    cpu_load(client->entity->cpu, "data/stack_cpu/hello.s");
-    cpu_start(client->entity->cpu);
+    //client->entity->cpu->kbd->input = init_input(client->ui);
+    //client->ui->input = client->entity->cpu->kbd->input;
+    //load_cpu(client->entity->cpu, "data/stack_cpu/hello.s");
+    //start_cpu(client->entity->cpu);
 
     init_gfx_ship_ui(client->ui->gfx, client->entity);
 

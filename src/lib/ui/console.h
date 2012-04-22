@@ -28,7 +28,6 @@ typedef enum cmd_e {
     CMD_CPU_STOP,
     CMD_CPU_RESET,
     CMD_CPU_STEP,
-    CMD_CPU_STATUS,
     CMD_QUIT,
 } cmd_t;
 
@@ -42,7 +41,6 @@ static const char *cmds[] = {
     "cpu_stop",
     "cpu_reset",
     "cpu_step",
-    "cpu_status",
     "quit",
 };
 
@@ -59,7 +57,6 @@ void cmd_cpu_start(console_t *, int, char **);
 void cmd_cpu_stop(console_t *, int, char **);
 void cmd_cpu_reset(console_t *, int, char **);
 void cmd_cpu_step(console_t *, int, char **);
-void cmd_cpu_status(console_t *, int, char **);
 
 char * prompt(EditLine *);
 void update_console(console_t *, double);

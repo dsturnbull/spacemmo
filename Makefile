@@ -3,7 +3,8 @@ CC=clang
 #OPT=-O3
 OPT=-g
 CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch
-CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-sign-compare
+CFLAGS+=-Wno-unused-variable -Wno-unused-parameter
+CFLAGS+=-Wno-objc-protocol-method-implementation
 CFLAGS+=-std=c11
 CFLAGS+=-I. -I/usr/local/include/SDL
 CFLAGS+=$(shell pkg-config libpng --cflags)
@@ -14,7 +15,7 @@ LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning	\
 	       -dynamic -flat_namespace
 LIBTOOL_FLAGS+=-lag_core -lag_gui -lag_dev
 
-LDFLAGS+=-L. -ledit -L/usr/X11/lib -lfreetype
+LDFLAGS+=-L.
 
 CL=client
 CL_SRCS=src/cl.c
@@ -29,7 +30,7 @@ CLI=cli
 CLI_SRCS=src/cli.c
 CLI_OBJS=$(CLI_SRCS:%.c=%.o)
 CLI_CFLAGS+=-flto $(OPT)
-CLI_LDFLAGS+=$(LDFLAGS)
+CLI_LDFLAGS+=$(LDFLAGS) -ledit
 
 SV=server
 SV_SRCS=src/sv.c
@@ -37,23 +38,39 @@ SV_OBJS=$(SV_SRCS:%.c=%.o)
 SV_CFLAGS+=-flto $(OPT)
 SV_LDFLAGS=$(LDFLAGS)
 
-MON=mon
-MON_SRCS=src/mon.c
-MON_OBJS=$(MON_SRCS:%.c=%.o)
-MON_CFLAGS+=-flto $(OPT)
-MON_LDFLAGS=$(LDFLAGS)
-
 LIB=libspacemmo.dylib
 LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c)
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
 
-SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS)
-OBJS=$(SRCS:%.c=%.o)
+CPU=cpu
+CPU_SRCS=src/cpu.c
+CPU_OBJS=$(CPU_SRCS:%.c=%.o)
+CPU_CFLAGS+=-flto $(OPT)
+CPU_LDFLAGS=$(LDFLAGS)
+
+SASM=sasm
+SASM_SRCS=src/sasm.c
+SASM_OBJS=$(SASM_SRCS:%.c=%.o)
+SASM_CFLAGS+=-flto $(OPT)
+SASM_LDFLAGS=$(LDFLAGS)
+
+TEST=test_runner
+TEST_SRCS=src/tests.c
+TEST_OBJS=$(TEST_SRCS:%.c=%.o)
+TEST_CFLAGS+=-flto $(OPT)
+TEST_LDFLAGS=$(LDFLAGS)
+
+TESTS_SRCS=$(wildcard tests/*.c)
+TESTS_OBJS=$(TESTS_SRCS:%.c=%.o)
+TESTS_LIBS=$(TESTS_SRCS:%.c=%.dylib)
+
+SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(TEST_SRCS) $(TESTS_SRCS)
+OBJS=$(SRCS:%.c=%.o) $(TESTS_LIBS)
 DEPS=$(SRCS:%.c=%.d)
 
 SDLMAIN=src/SDLMain.o
 
-all: $(SDLMAIN) $(LIB) $(CL) $(SV) $(CLI) $(MON)
+all: $(SDLMAIN) $(LIB) $(CL) $(SV) $(CLI) $(CPU) $(SASM) $(TEST)
 
 $(SDLMAIN):
 	$(CC) $(CFLAGS) -I/usr/local/include/SDL -c $(@:%.o=%.m) -o $@
@@ -67,16 +84,30 @@ $(SV): $(SV_OBJS) $(LIB)
 $(CLI): $(CLI_OBJS) $(LIB)
 	$(CC) $(CLI_CFLAGS) $(CLI_LDFLAGS) -L. -lspacemmo $(CLI_OBJS) -o $@
 
-$(MON): $(MON_OBJS) $(LIB)
-	$(CC) $(MON_CFLAGS) $(MON_LDFLAGS) -L. -lspacemmo $(MON_OBJS) -o $@
+$(CPU): $(CPU_OBJS) $(LIB)
+	$(CC) $(CPU_CFLAGS) $(CPU_LDFLAGS) -L. -lspacemmo $(CPU_OBJS) -o $@
+
+$(SASM): $(SASM_OBJS) $(LIB)
+	$(CC) $(SASM_CFLAGS) $(SASM_LDFLAGS) -L. -lspacemmo $(SASM_OBJS) -o $@
 
 $(LIB): $(LIB_OBJS)
 	libtool -dynamic -o $@ $(LIBTOOL_FLAGS) $(LIB_OBJS)
 
+$(TEST_OBJS): .compiler_flags
+$(TEST): $(TEST_OBJS) $(LIB)
+	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) -L. -lspacemmo $(TEST_OBJS) -o $@
+
+$(TESTS_OBJS): .compiler_flags
+	$(CC) $(CFLAGS) -c $(@:%.o=%.c) -o $@
+	libtool -dynamic -o $(@:%.o=%.dylib) $(LIBTOOL_FLAGS) $@
+
+test: $(TESTS_OBJS) $(TEST)
+	@./$(TEST)
+
 clean:
 	rm -f $(OBJS)
 	rm -f $(DEPS)
-	rm -f $(CL) $(SV) $(CLI) $(MON) $(LIB)
+	rm -f $(CL) $(SV) $(CLI) $(CPU) $(SASM) $(TEST) $(LIB)
 
 analyze:
 	$(CC) $(CFLAGS) --analyze $(SRCS)
@@ -86,5 +117,5 @@ $(DEPS):
 
 -include $(DEPS)
 
-.PHONY: all clean analyze $(DEPS)
+.PHONY: all clean analyze test $(DEPS)
 

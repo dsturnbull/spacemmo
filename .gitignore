@@ -1,7 +1,8 @@
 cli
 client
 server
-mon
+cpu
+sasm
+test_runner
 libspacemmo.dylib
 
-local

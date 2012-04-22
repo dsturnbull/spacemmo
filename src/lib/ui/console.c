@@ -13,6 +13,7 @@
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
 #include "src/lib/entity.h"
+#include "src/lib/cpu/sasm.h"
 #include "src/lib/cpu/cpu.h"
 
 console_t *
@@ -122,10 +123,6 @@ process_input(console_t *console)
                 cmd_cpu_step(console, argc, argv);
                 break;
 
-            case CMD_CPU_STATUS:
-                cmd_cpu_status(console, argc, argv);
-                break;
-
             case CMD_QUIT:
                 client->quit = true;
                 break;
@@ -213,42 +210,37 @@ void
 cmd_cpu_load(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_load(cpu, argv[1]);
+    sasm_t *sasm = init_sasm();
+    assemble(sasm, argv[1]);
+    load_cpu(cpu, sasm->prog, sasm->prog_len);
 }
 
 void
 cmd_cpu_start(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_start(cpu);
+    cpu->halted = false;
 }
 
 void
 cmd_cpu_stop(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_stop(cpu);
+    cpu->halted = true;
 }
 
 void
 cmd_cpu_reset(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_reset(cpu);
+    reset_cpu(cpu);
 }
 
 void
 cmd_cpu_step(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_step(cpu);
-}
-
-void
-cmd_cpu_status(console_t *console, int argc, char *argv[])
-{
-    cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu_status(cpu);
+    step_cpu(cpu);
 }
 
 void

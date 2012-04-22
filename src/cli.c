@@ -10,7 +10,6 @@
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
 #include "src/lib/cpu/cpu.h"
-#include "src/lib/cpu/hardware/keyboard.h"
 
 int
 main(int argc, char *argv[])
@@ -36,8 +35,6 @@ main(int argc, char *argv[])
     init_default_world(client->server->world);
 
     client->entity = find_entity(client->server->world, 2);
-    cpu_load(client->entity->cpu, "data/stack_cpu/hello.s");
-    cpu_start(client->entity->cpu);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         client_loop(client);

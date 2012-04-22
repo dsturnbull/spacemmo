@@ -1,5 +1,9 @@
-#include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <util.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "src/lib/cpu/hardware/tty.h"
 
@@ -7,53 +11,42 @@ tty_t *
 init_tty()
 {
     tty_t *tty = calloc(1, sizeof(tty_t));
-    tty->cursor = &tty->display[0];
+
+    if (openpty(&tty->master, &tty->slave, NULL, NULL, NULL) != 0) {
+        perror("openpty");
+        return NULL;
+    }
+
+    //fcntl(tty->master, F_SETFL, O_NONBLOCK);
+    tty->fn = strdup(ttyname(tty->slave));
+
+    //struct termios tio;
+    //tcgetattr(tty->master, &tio);
+    //tio.c_lflag &= ECHO;
+    //tcsetattr(tty->master, TCSANOW, &tio);
+
     return tty;
 }
 
-void
-ttyp(tty_t *tty, uint8_t c)
+bool
+read_tty(tty_t *tty, char *c)
 {
-    // TODO ansi
-    // TODO scroll the screen
 
-    if (c == 0xa || c == 0xd) {
-        int cur_pos = tty->cursor - &tty->display[0];
-        int cur_row = cur_pos / SCREEN_WIDTH;
-        int new_pos = 0;
-
-        new_pos = (cur_row + 1) * SCREEN_WIDTH;
-        tty->cursor = &tty->display[new_pos];
-    } else if (c == 0x8) {
-        *(--tty->cursor) = '\0';
-        while (*(tty->cursor - 1) == '\0')
-            *(tty->cursor--) = '\0';
-    } else {
-        *(tty->cursor++) = c;
-    }
-
-    FILE *out = fopen("/tmp/screen", "w");
-    write_tty(tty, out);
-    fclose(out);
+    if (read(tty->master, c, 1) == 1)
+        return true;
+    return false;
 }
 
 void
-print_screen(tty_t *tty)
+write_tty(tty_t *tty, char c)
 {
-    write_tty(tty, stdout);
-}
-
-void
-write_tty(tty_t *tty, FILE *out)
-{
-    for (int i = 0; i < SCREEN_HEIGHT; i++) {
-        for (int j = 0; j < SCREEN_WIDTH; j++) {
-            char c = tty->display[i * SCREEN_WIDTH + j];
-            if (c == '\0')
-                break;
-            fprintf(out, "%c", c);
-        }
-        fprintf(out, "\n");
+    // TODO fix the terminal settings
+    if (c == 0xd) {
+        char d = 0xa;
+        char *s = "\033[36m";
+        write(tty->master, s, strlen(s));
+        write(tty->master, &d, 1);
     }
+    write(tty->master, &c, 1);
 }
 
