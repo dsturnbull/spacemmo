@@ -9,8 +9,6 @@
 #include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
-#include "src/lib/ui/gfx.h"
-#include "src/lib/ui/input.h"
 #include "src/lib/cpu/cpu.h"
 
 int
@@ -22,7 +20,6 @@ main(int argc, char *argv[])
     client_t *client    = init_client();
 
     client->ui          = init_ui(client);
-    client->ui->gfx     = init_gfx(client->ui);
     client->ui->console = init_console(client->ui, "client");
 
     time_delta(0);
@@ -42,8 +39,6 @@ main(int argc, char *argv[])
     //client->ui->input = client->entity->cpu->kbd->input;
     //load_cpu(client->entity->cpu, "data/stack_cpu/hello.s");
     //start_cpu(client->entity->cpu);
-
-    init_gfx_ship_ui(client->ui->gfx, client->entity);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

@@ -303,11 +303,13 @@ step_cpu(cpu_t *cpu)
                     set_timer_isr(cpu,
                             *((uint32_t *)(cpu->sp - 4)),
                             *((uint32_t *)(cpu->sp - 8)));
+                    cpu->sp -= 8;
                     break;
 
                 case IRQ_KBD:
                     LOG("kbd int %08x\n", *((uint32_t *)(cpu->sp - 4)));
                     set_kbd_isr(cpu, *((uint32_t *)(cpu->sp - 4)));
+                    cpu->sp -= 4;
                     break;
 
                 case IRQ_TTY:
@@ -344,8 +346,8 @@ step_cpu(cpu_t *cpu)
             break;
 
         default:
-            assert(false);
             LOG("unknown instruction 0x%02x\n", op);
+            assert(false);
     }
 
     cpu->cycles++;

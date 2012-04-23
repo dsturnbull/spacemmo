@@ -1,5 +1,5 @@
-#ifndef __src_lib_hardware_disk_h
-#define __src_lib_hardware_disk_h
+#ifndef __src_lib_cpu_hardware_disk_h
+#define __src_lib_cpu_hardware_disk_h
 
 #include <sys/types.h>
 #include <stdint.h>

@@ -43,8 +43,6 @@ write_tty(tty_t *tty, char c)
     // TODO fix the terminal settings
     if (c == 0xd) {
         char d = 0xa;
-        char *s = "\033[36m";
-        write(tty->master, s, strlen(s));
         write(tty->master, &d, 1);
     }
     write(tty->master, &c, 1);

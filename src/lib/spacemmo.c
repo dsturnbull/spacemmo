@@ -7,7 +7,6 @@
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
 #include "src/lib/entity.h"
-#include "src/lib/ui/input.h"
 #include "src/lib/cpu/cpu.h"
 
 struct timeval * timers[256 << (sizeof(timer_t) * 8) - 8];

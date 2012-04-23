@@ -1,4 +1,3 @@
-cli
 client
 server
 cpu
@@ -6,3 +5,4 @@ sasm
 test_runner
 libspacemmo.dylib
 
+*.sys

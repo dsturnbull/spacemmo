@@ -7,7 +7,6 @@
 #include "src/lib/entity.h"
 #include "src/lib/system.h"
 #include "src/lib/cpu/cpu.h"
-#include "src/lib/ui/input.h"
 
 entity_id_t last_id = 0;
 
@@ -28,8 +27,6 @@ init_entity(system_t *system)
     this->ypr = calloc(1, sizeof(vec3f));
     this->mass = 1e3;
 
-    this->input = init_input(NULL);
-
     add_entity(system, this);
     return this;
 }
@@ -37,7 +34,6 @@ init_entity(system_t *system)
 void
 update_entity(entity_t *this, double dt)
 {
-    bool *keys = this->input->keys;
     float thrust_amt = 1;
 
     vec3f *pos = this->pos;
@@ -45,6 +41,7 @@ update_entity(entity_t *this, double dt)
     vec3f *acc = this->acc;
     vec3f *ypr = this->ypr;
 
+    /*
     // thrust
     if (keys['w'])
         acc->z += thrust_amt;
@@ -91,33 +88,15 @@ update_entity(entity_t *this, double dt)
         vel->x = vel->y = 0.0;
         acc->x = acc->y = acc->z = 0.0;
     }
+    */
 
-    if (false) { //e->parent && e->period > 0) {
-        //(x - a)² + (y - b)² = r²
-        /* long double radius = sqrt( */
-        /*         pow(e->pos.x - e->parent->pos.x, 2) +  */
-        /*         pow(e->pos.y - e->parent->pos.y, 2) +  */
-        /*         pow(e->pos.z - e->parent->pos.z, 2)); */
+    this->pos->x += this->vel->x * dt;
+    this->pos->y += this->vel->y * dt;
+    this->pos->z += this->vel->z * dt;
 
-        /* struct timeval t; */
-        /* gettimeofday(&t, NULL); */
-        /* double ts = (double)t.tv_sec + (double)t.tv_usec / 1000 / 1000; */
-
-        /* long double angle_per_sec = 2 * M_PI / e->period; */
-        /* long double angle = ts - e->birth * angle_per_sec; */
-
-        /* e->pos.x = radius * cos(angle); */
-        /* e->pos.y = radius * sin(angle); */
-
-    } else {
-        this->pos->x += this->vel->x * dt;
-        this->pos->y += this->vel->y * dt;
-        this->pos->z += this->vel->z * dt;
-
-        this->vel->x += this->acc->x * dt;
-        this->vel->y += this->acc->y * dt;
-        this->vel->z += this->acc->z * dt;
-    }
+    this->vel->x += this->acc->x * dt;
+    this->vel->y += this->acc->y * dt;
+    this->vel->z += this->acc->z * dt;
 
     /* printf("entity %lu:\n", e->id); */
     /* printf("\tpos %g, %g, %g\n", e->pos.x, e->pos.y, e->pos.z); */

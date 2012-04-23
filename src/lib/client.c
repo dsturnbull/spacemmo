@@ -17,8 +17,6 @@
 #include "src/lib/server.h"
 #include "src/lib/net.h"
 #include "src/lib/ui.h"
-#include "src/lib/ui/gfx.h"
-#include "src/lib/ui/input.h"
 #include "src/lib/world.h"
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
@@ -62,17 +60,9 @@ init_client_kqueue(client_t *client)
     if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set game update kevent");
 
-    // register gfx update timer
-    memset(&client->ke, 0, sizeof(struct kevent));
-    EV_SET(&client->ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS,
-            1000 * 1000 / FRAMERATE_HZ, NULL);
-
-    if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
-        err(EX_UNAVAILABLE, "set gfx update kevent");
-
     // register cpu update timer
     memset(&client->ke, 0, sizeof(struct kevent));
-    EV_SET(&client->ke, 2, EVFILT_TIMER, EV_ADD, NOTE_NSECONDS, 1, NULL);
+    EV_SET(&client->ke, 1, EVFILT_TIMER, EV_ADD, NOTE_NSECONDS, 1, NULL);
 
     if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set cpu update kevent");
@@ -126,9 +116,6 @@ handle_client_events(client_t *client)
         // game update timer fired
         update_client(client);
     } else if (client->ke.ident == 1) {
-        // gfx fired
-        update_ui(client->ui, time_delta(FRAME_TIMER));
-    } else if (client->ke.ident == 2) {
         // cpu fired
     }
 

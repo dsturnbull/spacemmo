@@ -1,5 +1,5 @@
-%import "s/fs.s"
-%import "s/util.s"
+%import "data/progs/fs.s"
+%import "data/progs/util.s"
 
 %data menu_str "[n]ew [l]ist"
 %data menu_str_len @-menu_str

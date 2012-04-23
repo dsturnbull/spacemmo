@@ -45,9 +45,12 @@ main(int argc, char *argv[])
     fread(buf, st.st_size, 1, fp);
     fclose(fp);
 
+    cpu->halted = false;
     load_cpu(cpu, (uint8_t *)buf, st.st_size);
     free(buf);
-    run_cpu(cpu);
+
+    while (true)
+        run_cpu(cpu);
 
     return 0;
 }

@@ -1,4 +1,4 @@
-%define	TICK	0x30
+%dw TICK
 
 _main:
 	; run queue
@@ -15,7 +15,7 @@ _clk_isr:
 	push	TICK
 	load
 	push	0x1
-	sub
+	add
 	store
 
 	ret

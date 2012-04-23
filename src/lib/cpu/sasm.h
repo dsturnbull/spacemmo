@@ -1,5 +1,5 @@
-#ifndef __src_lib_sasm_h
-#define __src_lib_sasm_h
+#ifndef __src_lib_cpu_sasm_h
+#define __src_lib_cpu_sasm_h
 
 #include <stdio.h>
 #include <stdint.h>

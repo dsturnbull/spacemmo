@@ -8,7 +8,6 @@
 #include "src/lib/server.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
-#include "src/lib/ui/input.h"
 #include "src/lib/world.h"
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"

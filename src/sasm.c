@@ -11,7 +11,7 @@ main(int argc, char *argv[])
     char *nfn = strdup(fn);
     char *nfn2 = nfn;
     char *obj_fn;
-    asprintf(&obj_fn, "%s.o", strsep(&nfn2, "."));
+    asprintf(&obj_fn, "%s.sys", strsep(&nfn2, "."));
     free(nfn);
 
     FILE *fp;

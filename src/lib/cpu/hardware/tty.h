@@ -1,5 +1,5 @@
-#ifndef __src_lib_hardware_tty_h
-#define __src_lib_hardware_tty_h
+#ifndef __src_lib_cpu_hardware_tty_h
+#define __src_lib_cpu_hardware_tty_h
 
 #include <stdbool.h>
 

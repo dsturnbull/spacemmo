@@ -6,7 +6,7 @@ CFLAGS+=-pedantic-errors -Wall -Werror -Wextra -Wformat=2 -Wswitch
 CFLAGS+=-Wno-unused-variable -Wno-unused-parameter
 CFLAGS+=-Wno-objc-protocol-method-implementation
 CFLAGS+=-std=c11
-CFLAGS+=-I. -I/usr/local/include/SDL
+CFLAGS+=-I.
 CFLAGS+=$(shell pkg-config libpng --cflags)
 CFLAGS+=$(shell agar-vg-config --cflags)
 CFLAGS+=$(OPT) -mtune=native -fcommon -pipe
@@ -15,22 +15,13 @@ LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning	\
 	       -dynamic -flat_namespace
 LIBTOOL_FLAGS+=-lag_core -lag_gui -lag_dev
 
-LDFLAGS+=-L.
+LDFLAGS+=-L. -ledit
 
 CL=client
 CL_SRCS=src/cl.c
 CL_OBJS=$(CL_SRCS:%.c=%.o)
 CL_CFLAGS+=-flto $(OPT)
 CL_LDFLAGS+=$(LDFLAGS)
-CL_LDFLAGS+=-lSDL -lSDL_image
-CL_LDFLAGS+=-framework Cocoa -framework OpenGL
-CL_LDFLAGS+=$(shell pkg-config libpng --libs)
-
-CLI=cli
-CLI_SRCS=src/cli.c
-CLI_OBJS=$(CLI_SRCS:%.c=%.o)
-CLI_CFLAGS+=-flto $(OPT)
-CLI_LDFLAGS+=$(LDFLAGS) -ledit
 
 SV=server
 SV_SRCS=src/sv.c
@@ -64,25 +55,17 @@ TESTS_SRCS=$(wildcard tests/*.c)
 TESTS_OBJS=$(TESTS_SRCS:%.c=%.o)
 TESTS_LIBS=$(TESTS_SRCS:%.c=%.dylib)
 
-SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(TEST_SRCS) $(TESTS_SRCS)
+SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(CPU_SRCS) $(SASM_SRCS) $(TEST_SRCS) $(TESTS_SRCS)
 OBJS=$(SRCS:%.c=%.o) $(TESTS_LIBS)
 DEPS=$(SRCS:%.c=%.d)
 
-SDLMAIN=src/SDLMain.o
-
-all: $(SDLMAIN) $(LIB) $(CL) $(SV) $(CLI) $(CPU) $(SASM) $(TEST)
-
-$(SDLMAIN):
-	$(CC) $(CFLAGS) -I/usr/local/include/SDL -c $(@:%.o=%.m) -o $@
+all: $(LIB) $(CL) $(SV) $(CPU) $(SASM) $(TEST)
 
 $(CL): $(CL_OBJS) $(LIB)
-	$(CC) $(CL_CFLAGS) $(CL_LDFLAGS) -L. -lspacemmo $(CL_OBJS) $(SDLMAIN) -o $@
+	$(CC) $(CL_CFLAGS) $(CL_LDFLAGS) -L. -lspacemmo $(CL_OBJS) -o $@
 
 $(SV): $(SV_OBJS) $(LIB)
 	$(CC) $(SV_CFLAGS) $(SV_LDFLAGS) -L. -lspacemmo $(SV_OBJS) -o $@
-
-$(CLI): $(CLI_OBJS) $(LIB)
-	$(CC) $(CLI_CFLAGS) $(CLI_LDFLAGS) -L. -lspacemmo $(CLI_OBJS) -o $@
 
 $(CPU): $(CPU_OBJS) $(LIB)
 	$(CC) $(CPU_CFLAGS) $(CPU_LDFLAGS) -L. -lspacemmo $(CPU_OBJS) -o $@
@@ -107,7 +90,7 @@ test: $(TESTS_OBJS) $(TEST)
 clean:
 	rm -f $(OBJS)
 	rm -f $(DEPS)
-	rm -f $(CL) $(SV) $(CLI) $(CPU) $(SASM) $(TEST) $(LIB)
+	rm -f $(CL) $(SV) $(CPU) $(SASM) $(TEST) $(LIB)
 
 analyze:
 	$(CC) $(CFLAGS) --analyze $(SRCS)

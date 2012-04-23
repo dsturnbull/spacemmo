@@ -1,5 +1,5 @@
-#ifndef __src_lib_cpu_h
-#define __src_lib_cpu_h
+#ifndef __src_lib_cpu_cpu_h
+#define __src_lib_cpu_cpu_h
 
 #include <stdio.h>
 #include <stdint.h>
