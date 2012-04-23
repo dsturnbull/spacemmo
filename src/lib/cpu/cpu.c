@@ -8,10 +8,12 @@
 #include <sys/event.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
+#include <fcntl.h>
 
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/hardware/tty.h"
 #include "src/lib/cpu/hardware/disk.h"
+#include "src/lib/cpu/hardware/port.h"
 
 uint8_t *prev;
 
@@ -42,6 +44,10 @@ init_cpu()
     cpu->log = stdout;
     cpu->tty = init_tty();
     cpu->disk = init_disk("/tmp/disk");
+    cpu->port0 = init_port(0);
+    cpu->port1 = init_port(1);
+    cpu->port2 = init_port(2);
+    cpu->port3 = init_port(3);
 
     cpu->halted = true;
 
@@ -58,19 +64,27 @@ void
 run_cpu(cpu_t *cpu)
 {
     while (true) {
-        if (cpu->mem[IRQ_CLK] ||
-            cpu->mem[IRQ_KBD]) {
+        memset(&cpu->ke, 0, sizeof(cpu->ke));
+        if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, NULL) > 0) {
+            if (cpu->mem[IRQ_CLK] && cpu->ke.ident == IRQ_CLK)
+                handle_timer(cpu);
 
-            memset(&cpu->ke, 0, sizeof(cpu->ke));
-            if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, NULL) > 0) {
-                if (cpu->ke.ident == IRQ_CLK) {
-                    handle_timer(cpu);
-                } else if (cpu->ke.ident == (uintptr_t)cpu->tty->master) {
-                    handle_kbd(cpu);
-                } else if (cpu->ke.ident == 0) {
-                    // timer tick
-                } else {
-                    assert(false);
+            if (cpu->mem[IRQ_KBD] &&
+                    cpu->ke.ident == (uintptr_t)cpu->tty->master)
+                handle_kbd(cpu);
+
+            for (int i = 0; i < 4; i++) {
+                port_t *port = cpu->port0 + i;
+                if (cpu->mem[IRQ_P0_IN + i * 8]) {
+                    if (cpu->ke.ident == (uintptr_t)port->sock) {
+                        LOG("connection on port %i\n", i);
+                        handle_port_connection(cpu, port);
+                    }
+
+                    if (cpu->ke.ident == (uintptr_t)port->client) {
+                        LOG("%li bytes on port %i\n", cpu->ke.data, i);
+                        handle_port_read(cpu, port);
+                    }
                 }
             }
         }
@@ -318,6 +332,7 @@ step_cpu(cpu_t *cpu)
                     cpu->sp -= 4;
                     break;
 
+                /*
                 case IRQ_DISK_SET:
                     LOG("disk set %08x.. ", *(cpu->sp));
                     set_disk_position(cpu->disk, *(cpu->sp--));
@@ -336,7 +351,30 @@ step_cpu(cpu_t *cpu)
                     LOG("disk write -> %08x @ %08lx\n", *(cpu->sp), cpu->disk->pos);
                     write_disk(cpu->disk, *(cpu->sp--));
                     break;
+                */
 
+                case IRQ_P0_IN:
+                case IRQ_P1_IN:
+                case IRQ_P2_IN:
+                case IRQ_P3_IN:
+                    LOG("port %i -> %08x\n", (irq - IRQ_P0_IN) / 8,
+                            *((uint32_t *)(cpu->sp - 4)));
+                    set_port_isr(cpu, (irq - IRQ_P0_IN) / 8,
+                            *((uint32_t *)(cpu->sp - 4)));
+                    cpu->sp -= 4;
+                    break;
+
+                case IRQ_P0_OUT:
+                case IRQ_P1_OUT:
+                case IRQ_P2_OUT:
+                case IRQ_P3_OUT:
+                    LOG("port %i < %02x\n", (irq - IRQ_P0_OUT) / 8,
+                            *((uint32_t *)(cpu->sp - 4)));
+                    write_port(cpu->port0 + (irq - IRQ_P0_OUT) / 8,
+                            *((char *)(cpu->sp - 4)));
+                    cpu->sp -= 4;
+                    break;
+                            
                 default:
                     LOG("unhandled irq %08x\n", *(cpu->sp));
                     break;
@@ -352,7 +390,7 @@ step_cpu(cpu_t *cpu)
 
     cpu->cycles++;
 
-    print_region(cpu, cpu->ip, cpu->mem, 0x300, "code", 34);
+    print_region(cpu, cpu->ip, cpu->mem, 0x80, "code", 34);
     print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x40, "stack", 31);
     print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x20, "rstack", 32);
 }
@@ -375,24 +413,24 @@ print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len,
 
         if (p == cpu->ip) {
             if (&data[i] == prev) {
-                printf("\033[36m");
+                LOG("\033[36m");
             } else if (&data[i] == cpu->ip) {
-                printf("\033[%im", c);
+                LOG("\033[%im", c);
             }
         } else if (&data[i] - p == -4) {
-            printf("\033[%im", c);
+            LOG("\033[%im", c);
         }
 
         LOG(" %02x", data[i]);
 
         if (p == cpu->ip) {
             if (&data[i] == prev) {
-                printf("\033[0m");
+                LOG("\033[0m");
             } else if (&data[i] == cpu->ip) {
-                printf("\033[0m");
+                LOG("\033[0m");
             }
         } else if (&data[i] - p == -1) {
-            printf("\033[0m");
+            LOG("\033[0m");
         }
     }
 
@@ -461,6 +499,61 @@ handle_kbd(cpu_t *cpu)
         LOG("char: %02x, jumping to %08x\n",
                 c, *(uint32_t *)(&cpu->mem[IRQ_KBD]));
         handle_irq(cpu, &cpu->mem[*(uint32_t *)(&cpu->mem[IRQ_KBD])]);
+    }
+}
+
+void
+set_port_isr(cpu_t *cpu, int portno, uint32_t isr)
+{
+    port_t *port = cpu->port0 + portno;
+    // watch for input
+    memset(&cpu->ke, 0, sizeof(struct kevent));
+    EV_SET(&cpu->ke, port->sock, EVFILT_READ, EV_ADD | EV_CLEAR,
+            0, 0, NULL);
+
+    if (kevent(cpu->kq, &cpu->ke, 1, NULL, 0, NULL) == -1) {
+        perror("port read");
+        exit(1);
+    }
+
+    memcpy(&cpu->mem[IRQ_P0_IN + portno * 8], &isr, 4);
+}
+
+void
+handle_port_connection(cpu_t *cpu, port_t *port)
+{
+    struct sockaddr_in c;
+    socklen_t len;
+
+    port->client = accept(port->sock, (struct sockaddr *)&c, &len);
+    if (port->client == -1) {
+        perror("accept");
+        return;
+    }
+
+    fcntl(port->client, F_SETFL, O_NONBLOCK);
+
+    memset(&cpu->ke, 0, sizeof(struct kevent));
+    EV_SET(&cpu->ke, port->client, EVFILT_READ, EV_ADD | EV_CLEAR,
+            0, 0, NULL);
+
+    if (kevent(cpu->kq, &cpu->ke, 1, NULL, 0, NULL) == -1) {
+        perror("port read");
+        exit(1);
+    }
+}
+
+void
+handle_port_read(cpu_t *cpu, port_t *port)
+{
+    char c = 0;
+    while (read_port(port, &c)) {
+        memset(cpu->sp, 0, 4);
+        *(cpu->sp) = c;
+        cpu->sp += 4;
+        uint32_t ptr = *(uint32_t *)(&cpu->mem[IRQ_P0_IN + port->n]);
+        LOG("char: %02x, jumping to %08x\n", c, ptr);
+        handle_irq(cpu, &cpu->mem[ptr]);
     }
 }
 

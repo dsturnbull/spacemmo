@@ -184,7 +184,7 @@ get_socket(char *addr, unsigned short port)
     int sock;
     struct sockaddr_in serv;
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+    if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         err(EX_UNAVAILABLE, "unable to create socket");
 
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&error,

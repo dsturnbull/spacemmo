@@ -117,9 +117,8 @@ handle_client_events(client_t *client)
         update_client(client);
     } else if (client->ke.ident == 1) {
         // cpu fired
+        update_cpus(client);
     }
-
-    update_cpus(client);
 
     if (client->quit)
         return;

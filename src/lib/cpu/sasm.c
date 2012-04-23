@@ -38,6 +38,14 @@ assemble(sasm_t *sasm, const char *fn)
     define_constant(sasm, "DISK_SET",   IRQ_DISK_SET);
     define_constant(sasm, "DISK_RD",    IRQ_DISK_RD);
     define_constant(sasm, "DISK_WR",    IRQ_DISK_WR);
+    define_constant(sasm, "IO_0_IN",    IRQ_P0_IN);
+    define_constant(sasm, "IO_0_OUT",   IRQ_P0_OUT);
+    define_constant(sasm, "IO_1_IN",    IRQ_P1_IN);
+    define_constant(sasm, "IO_1_OUT",   IRQ_P1_OUT);
+    define_constant(sasm, "IO_2_IN",    IRQ_P2_IN);
+    define_constant(sasm, "IO_2_OUT",   IRQ_P2_OUT);
+    define_constant(sasm, "IO_3_IN",    IRQ_P3_IN);
+    define_constant(sasm, "IO_3_OUT",   IRQ_P3_OUT);
 
     // make room for jumping to _main
     sasm->ip += 7;
@@ -170,7 +178,6 @@ parse_file(sasm_t *sasm, const char *fn)
         if (strlen(ops) == 0)
             continue;
 
-        opcode_t opcode;
         op_t op = parse_op(ops);
 
         switch (op) {

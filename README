@@ -4,19 +4,9 @@ client_t
                 vec3f pos
                 vec3f vel
                 vec3f acc
-                input_t input
                 system_t system
 
-                computer_t computer
-                        computer_id_t id
-			cpu_t cpu
-
-		bool component
-
-		slot_t slots[]
-			slot_type_t type
-			slot_size_t size
-			entity_t entity
+		cpu_t cpu
 
         server_t server
                 client_t clients[]
@@ -27,9 +17,7 @@ client_t
                                                 entity_t entities[]
 
         ui_t ui
-                gfx_t gfx
                 console_t console
-                input_t input
 
         client_loop()
                 update_client(dt)
@@ -37,8 +25,7 @@ client_t
                                 update_world(dt)
                                         foreach entities:
                                                 update_entity(dt)
-
-                update_gfx(dt)
+			update_cpus()
 
                 send_login_request(username, password)
 
