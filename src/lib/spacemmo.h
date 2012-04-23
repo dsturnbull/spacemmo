@@ -14,7 +14,7 @@ typedef struct world_st world_t;
 typedef uint32_t client_id_t;
 typedef uint32_t entity_id_t;
 
-typedef struct {
+typedef struct vec3f_st {
     double x, y, z;
 } vec3f;
 

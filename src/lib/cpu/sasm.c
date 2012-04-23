@@ -35,9 +35,11 @@ assemble(sasm_t *sasm, const char *fn)
     define_constant(sasm, "CLK",        IRQ_CLK);
     define_constant(sasm, "KBD",        IRQ_KBD);
     define_constant(sasm, "TTY",        IRQ_TTY);
+
     define_constant(sasm, "DISK_SET",   IRQ_DISK_SET);
     define_constant(sasm, "DISK_RD",    IRQ_DISK_RD);
     define_constant(sasm, "DISK_WR",    IRQ_DISK_WR);
+
     define_constant(sasm, "IO_0_IN",    IRQ_P0_IN);
     define_constant(sasm, "IO_0_OUT",   IRQ_P0_OUT);
     define_constant(sasm, "IO_1_IN",    IRQ_P1_IN);

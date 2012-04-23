@@ -1,5 +1,3 @@
-%dw TICK
-
 _main:
 	; each keypress is pushed and _kbd_isr is called
 	push _kbd_isr

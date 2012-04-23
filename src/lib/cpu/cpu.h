@@ -91,7 +91,6 @@ void handle_timer(cpu_t *);
 void set_kbd_isr(cpu_t *, uint32_t);
 void handle_kbd(cpu_t *);
 void set_port_isr(cpu_t *, int, uint32_t);
-void handle_port_connection(cpu_t *, port_t *);
 void handle_port_read(cpu_t *, port_t *);
 
 #endif

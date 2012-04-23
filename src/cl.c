@@ -9,7 +9,9 @@
 #include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
+#include "src/lib/cpu/sasm.h"
 #include "src/lib/cpu/cpu.h"
+#include "src/lib/cpu/hardware/thruster.h"
 
 int
 main(int argc, char *argv[])
@@ -37,8 +39,14 @@ main(int argc, char *argv[])
     client->entity = find_entity(client->server->world, 2);
     //client->entity->cpu->kbd->input = init_input(client->ui);
     //client->ui->input = client->entity->cpu->kbd->input;
-    //load_cpu(client->entity->cpu, "data/stack_cpu/hello.s");
-    //start_cpu(client->entity->cpu);
+
+    sasm_t *sasm = init_sasm();
+    assemble(sasm, "data/progs/thrusters.s");
+    load_cpu(client->entity->cpu, sasm->prog, sasm->prog_len);
+    client->entity->cpu->halted = false;
+
+    thruster_t *thruster = init_thruster(client->entity->cpu->port0,
+            client->entity->acc);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);
