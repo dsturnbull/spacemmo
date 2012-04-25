@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
+#include <string.h>
 #include <getopt.h>
 
 #include "src/lib/cpu/cpu.h"
@@ -11,6 +10,7 @@ main(int argc, char *argv[])
 {
     int ch;
     cpu_t *cpu = init_cpu();
+    char *sys_file;
 
     while ((ch = getopt(argc, argv, "df:")) != EOF) {
         switch (ch) {
@@ -19,7 +19,7 @@ main(int argc, char *argv[])
                 break;
 
             case 'f':
-                cpu->log = fopen(optarg, "a");
+                sys_file = strdup(optarg);
                 break;
         }
     }
@@ -27,31 +27,13 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    char *fn = argv[0];
-
-    struct stat st;
-    if (stat(fn, &st) < 0) {
-        perror("stat");
-        exit(1);
-    }
-
-    FILE *fp;
-    if ((fp = fopen(fn, "r")) == NULL) {
-        perror("fopen");
-        exit(1);
-    }
-
-    char *buf = malloc(st.st_size);
-    fread(buf, st.st_size, 1, fp);
-    fclose(fp);
-
     cpu->halted = false;
-    load_cpu(cpu, (uint8_t *)buf, st.st_size);
-    free(buf);
+    load_cpu(cpu, sys_file);
 
     while (true)
         run_cpu(cpu);
 
+    free_cpu(cpu);
     return 0;
 }
 

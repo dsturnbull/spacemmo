@@ -58,3 +58,15 @@ init_default_world(world_t *world)
     engine->cpu->debug = true;
 }
 
+char *
+replace_ext(char *str, char *ext)
+{
+    char *orig = strdup(str);
+    char *rpl = orig;
+    char *new;
+    strsep(&rpl, ".");
+    asprintf(&new, "%s%s", orig, ext);
+    free(orig);
+    return new;
+}
+

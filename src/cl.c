@@ -42,7 +42,8 @@ main(int argc, char *argv[])
 
     sasm_t *sasm = init_sasm();
     assemble(sasm, "data/progs/thrusters.s");
-    load_cpu(client->entity->cpu, sasm->prog, sasm->prog_len);
+    //load_cpu(client->entity->cpu, (char *)sasm->prog, sasm->prog_len);
+    free_sasm(sasm);
     client->entity->cpu->halted = false;
 
     thruster_t *thruster = init_thruster(client->entity->cpu->port0,

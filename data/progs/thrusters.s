@@ -9,6 +9,8 @@
 %dw STATUS 12
 %dw STATUS_P
 
+%import "data/progs/util.s"
+
 _main:
 	push _kbd_isr
 	push KBD
@@ -110,8 +112,6 @@ _decrease_z_thrust:
 	ret
 
 _status:
-	pop
-
 	push STATUS_P
 	push 0x0
 	store
@@ -141,13 +141,43 @@ _status_isr:
 	add
 	store
 
+	push _print_status
+	push 0x4
+	push STATUS_P
+	load
+	div
+	swap
+	pop
+	jz
+
 	push STATUS_P
 	load
 	push 0xc
-	push _print_status
+	push _status_ret
 	je
 
 	ret
 
+_status_ret:
+	push 0xd
+	push TTY
+	int
+
+	ret
+
 _print_status:
+	push STATUS_P
+	load
+	push 0x4
+	sub
+	push STATUS
+	add
+	load
+	push _tty_print_number
+	call
+
+	push 0x20
+	push TTY
+	int
+
 	ret

@@ -1,15 +1,9 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termios.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/event.h>
 #include <sys/stat.h>
-#include <netinet/in.h>
-#include <fcntl.h>
 
+#include "src/lib/spacemmo.h"
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/hardware/tty.h"
 #include "src/lib/cpu/hardware/disk.h"
@@ -55,9 +49,54 @@ init_cpu()
 }
 
 void
-load_cpu(cpu_t *cpu, uint8_t *code, size_t len)
+free_cpu(cpu_t *cpu)
 {
-    memcpy(cpu->mem, code, len);
+    // TODO free everything
+    free(cpu);
+}
+
+void
+load_cpu(cpu_t *cpu, char *sys_file)
+{
+    char *dbg_file = replace_ext(sys_file, ".dbg");
+    FILE *sys_fp, *dbg_fp;
+    struct stat st;
+
+    // load code
+    if ((sys_fp = fopen(sys_file, "r")) == NULL) {
+        perror("sys_file");
+        exit(1);
+    }
+
+    memset(&st, 0, sizeof(st));
+    if (stat(sys_file, &st) < 0) {
+        perror("sys_file");
+        exit(1);
+    }
+
+    char *sys_buf = malloc(st.st_size);
+    fread(sys_buf, st.st_size, 1, sys_fp);
+    fclose(sys_fp);
+    memcpy(cpu->mem, sys_buf, st.st_size);
+    free(sys_buf);
+
+    // load source lookup
+    if ((dbg_fp = fopen(dbg_file, "r")) == NULL) {
+        perror("dbg_file");
+        exit(1);
+    }
+
+    cpu->src = malloc(st.st_size * sizeof(char *));
+    while (true) {
+        int pos, len;
+        if (fread(&pos, sizeof(pos), 1, dbg_fp) == 0)
+            break;
+        fread(&len, sizeof(len), 1, dbg_fp);
+
+        cpu->src[pos] = malloc(len + 1);
+        fread(cpu->src[pos], len, 1, dbg_fp);
+        cpu->src[pos][len] = '\0';
+    }
 }
 
 void
@@ -95,17 +134,18 @@ run_cpu(cpu_t *cpu)
 void
 step_cpu(cpu_t *cpu)
 {
-    uint32_t t, v;
+    uint32_t t, v, u;
     irq_t irq;
     op_t op = *(cpu->ip);
     prev = cpu->ip;
 
-    LOG("%s - ip: %08x sp: %08x rp: %08x op: %08x cy: %08lx ",
-            cpu->tty->fn,
-            (uint32_t)(cpu->ip - cpu->mem),
-            (uint32_t)(cpu->sp - &cpu->mem[CPU_STACK]),
-            (uint32_t)(cpu->bp - &cpu->mem[CPU_RET_STACK]),
-            op, cpu->cycles);
+    LOG("%08lx ", cpu->ip - cpu->mem);
+
+    t = *((uint32_t *)(cpu->sp - 4));
+    v = *((uint32_t *)(cpu->sp - 8));
+
+    char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
+    LOG("[\033[36m%-80s\033[0m] ", line);
 
     switch (op) {
         case NOP:
@@ -119,128 +159,91 @@ step_cpu(cpu_t *cpu)
             return;
 
         case LOAD:
-            LOG("load %08x from %08x\n",
-                    cpu->mem[*((uint32_t *)(cpu->sp - 4))],
-                    *((uint32_t *)(cpu->sp - 4)));
-            memcpy(cpu->sp - 4, &cpu->mem[*((uint32_t *)(cpu->sp - 4))], 4);
+            LOG("load %08x from %08x\n", cpu->mem[t], t);
+            memcpy(cpu->sp - 4, &cpu->mem[t], 4);
             cpu->ip++;
             break;
 
         case STORE:
-            LOG("store %08x at %08x\n",
-                    *((uint32_t *)(cpu->sp - 4)),
-                    *((uint32_t *)(cpu->sp - 8)));
-            t = *((uint32_t *)(cpu->sp - 4));
-            memcpy(&cpu->mem[*((uint32_t *)(cpu->sp - 8))], &t, 4);
+            LOG("store %08x at %08x\n", t, v);
+            memcpy(&cpu->mem[v], &t, 4);
             cpu->sp -= 8;
             cpu->ip++;
             break;
 
         case ADD:
-            t = *((uint32_t *)(cpu->sp - 4)) +
-                *((uint32_t *)(cpu->sp - 8));
-
-            LOG("add %08x + %08x == %08x\n",
-                    *((uint32_t *)(cpu->sp - 4)),
-                    *((uint32_t *)(cpu->sp - 8)),
-                    t);
-            memcpy(cpu->sp - 8, &t, 4);
+            u = t + v;
+            LOG("add %08x + %08x == %08x\n", t, v, u);
+            memcpy(cpu->sp - 8, &u, 4);
             cpu->sp -= 4;
             cpu->ip++;
             break;
 
         case SUB:
-            t = *((uint32_t *)(cpu->sp - 8)) -
-                *((uint32_t *)(cpu->sp - 4));
-
-            LOG("sub %08x - %08x == %08x\n",
-                    *((uint32_t *)(cpu->sp - 8)),
-                    *((uint32_t *)(cpu->sp - 4)),
-                    t);
-            memcpy(cpu->sp - 8, &t, 4);
+            u = v - t;
+            LOG("sub %08x - %08x == %08x\n", v, t, u);
+            memcpy(cpu->sp - 8, &u, 4);
             cpu->sp -= 4;
             cpu->ip++;
             break;
 
-        /*
         case MUL:
-            LOG("mul %08x * %08x == %08x\n",
-                    *(cpu->sp), *(cpu->sp - 1),
-                    *(cpu->sp) * *(cpu->sp - 1));
-            *(cpu->sp - 1) = *(cpu->sp) * *(cpu->sp - 1);
-            cpu->sp--;
+            u = t * v;
+            LOG("mul %08x * %08x == %08x\n", t, v, u);
+            memcpy(cpu->sp - 8, &u, 4);
+            cpu->sp -= 8;
             cpu->ip++;
             break;
-        */
 
         case DIV:
-            LOG("div %08x / %08x == %08x r %08x\n",
-                    *((uint32_t *)(cpu->sp - 4)),
-                    *((uint32_t *)(cpu->sp - 8)),
-                    *((uint32_t *)(cpu->sp - 4)) /
-                    *((uint32_t *)(cpu->sp - 8)),
-                    *((uint32_t *)(cpu->sp - 4)) %
-                    *((uint32_t *)(cpu->sp - 8)));
-            v = *((uint32_t *)(cpu->sp - 4));
-            t = v % *((uint32_t *)(cpu->sp - 8));
-            memcpy(cpu->sp - 4, &t, 4);
-            t = v / *((uint32_t *)(cpu->sp - 8));
-            memcpy(cpu->sp - 8, &t, 4);
+            LOG("div %08x / %08x == %08x r %08x\n", t, v, t / v, t % v);
+            u = t % v;
+            memcpy(cpu->sp - 4, &u, 4);
+            u = t / v;
+            memcpy(cpu->sp - 8, &u, 4);
             cpu->ip++;
             break;
 
-        /*
         case AND:
-            LOG("and %08x & %08x == %08x\n",
-                    *(cpu->sp), *(cpu->sp - 1),
-                    *(cpu->sp) & *(cpu->sp - 1));
-            *(cpu->sp - 1) = *(cpu->sp) & *(cpu->sp - 1);
-            cpu->sp--;
+            u = t & v;
+            LOG("and %08x & %08x == %08x\n", t, v, u);
+            memcpy(cpu->sp - 8, &u, 4);
+            cpu->sp -= 8;
             cpu->ip++;
             break;
 
         case OR:
-            LOG("or %08x | %08x == %08x\n",
-                    *(cpu->sp), *(cpu->sp - 1),
-                    *(cpu->sp) | *(cpu->sp - 1));
-            *(cpu->sp - 1) = *(cpu->sp) | *(cpu->sp - 1);
-            cpu->sp--;
+            u = t | v;
+            LOG("or %08x | %08x == %08x\n", t, v, u);
+            memcpy(cpu->sp - 8, &u, 4);
+            cpu->sp -= 8;
             cpu->ip++;
             break;
-        */
 
         case JMP:
-            LOG("jmp to %08x\n", *((uint32_t *)(cpu->sp - 4)));
-            cpu->ip = &cpu->mem[*((uint32_t *)(cpu->sp - 4))];
+            LOG("jmp to %08x\n", t);
+            cpu->ip = &cpu->mem[t];
             cpu->sp -= 4;
             break;
 
         case JE:
             LOG("je: ");
-
-            if (*((uint32_t *)(cpu->sp - 8)) ==
-                *((uint32_t *)(cpu->sp - 12))) {
-                LOG("%08x == %08x, jumping %08x\n",
-                    *((uint32_t *)(cpu->sp - 8)),
-                    *((uint32_t *)(cpu->sp - 12)),
-                    *((uint32_t *)(cpu->sp - 4)));
-                cpu->ip = &cpu->mem[*((uint32_t *)(cpu->sp - 4))];
+            u = *((uint32_t *)(cpu->sp - 12));
+            if (v == u) {
+                LOG("%08x == %08x, jumping %08x\n", v, u, t);
+                cpu->ip = &cpu->mem[t];
             } else {
-                LOG("%08x != %08x, not jumping\n",
-                    *((uint32_t *)(cpu->sp - 8)),
-                    *((uint32_t *)(cpu->sp - 12)));
+                LOG("%08x != %08x, not jumping\n", v, u);
                 cpu->ip++;
             }
             cpu->sp -= 12;
-
             break;
 
         case JZ:
-            LOG("jz %08x ", *((uint32_t *)(cpu->sp - 4)));
-            if (*((uint32_t *)(cpu->sp - 4)) == 0) {
-                LOG("== 00000000, jumping to %08x\n",
-                        *((uint32_t *)(cpu->sp - 8)));
-                cpu->ip = &cpu->mem[*(uint32_t *)(cpu->sp - 8)];
+            LOG("jz %08x ", t);
+            if (t == 0) {
+                LOG("== 00000000, jumping to %08x\n", v);
+                cpu->ip = &cpu->mem[v];
             } else {
                 LOG("!= 00000000, not jumping\n");
                 cpu->ip++;
@@ -249,11 +252,10 @@ step_cpu(cpu_t *cpu)
             break;
 
         case JNZ:
-            LOG("jnz %08x ", *((uint32_t *)(cpu->sp - 4)));
-            if (*((uint32_t *)(cpu->sp - 4)) != 0) {
-                LOG("!= 00000000, jumping to %08x\n",
-                        *((uint32_t *)(cpu->sp - 8)));
-                cpu->ip = &cpu->mem[*(uint32_t *)(cpu->sp - 8)];
+            LOG("jnz %08x ", t);
+            if (t != 0) {
+                LOG("!= 00000000, jumping to %08x\n", v);
+                cpu->ip = &cpu->mem[v];
             } else {
                 LOG("== 00000000, not jumping\n");
                 cpu->ip++;
@@ -262,31 +264,31 @@ step_cpu(cpu_t *cpu)
             break;
 
         case CALL:
-            LOG("call %08x from %08lx\n",
-                    *((uint32_t *)(cpu->sp - 4)), cpu->ip - cpu->mem);
-            t = cpu->ip - cpu->mem + 1;
-            cpu->ip = &cpu->mem[*((uint32_t *)(cpu->sp - 4))];
-            memcpy(cpu->bp, &t, 4);
+            LOG("call %08x from %08lx\n", t, cpu->ip - cpu->mem);
+            u = cpu->ip - cpu->mem + 1;
+            cpu->ip = &cpu->mem[t];
+            memcpy(cpu->bp, &u, 4);
             cpu->bp += 4;
             cpu->sp -= 4;
             break;
 
         case RET:
-            LOG("ret from %08lx to %08x\n",
-                    cpu->ip - cpu->mem, *((uint32_t *)(cpu->bp - 4)));
-            cpu->ip = &cpu->mem[*((uint32_t *)(cpu->bp - 4))];
+            u = *((uint32_t *)(cpu->bp - 4));
+            LOG("ret from %08lx to %08x\n", cpu->ip - cpu->mem, u);
+            cpu->ip = &cpu->mem[u];
             cpu->bp -= 4;
             break;
 
         case DUP:
-            LOG("dup %08x\n", *((uint32_t *)(cpu->sp - 4)));
+            LOG("dup %08x\n", t);
             memcpy(cpu->sp, cpu->sp - 4, 4);
             cpu->sp += 4;
             cpu->ip++;
             break;
 
         case PUSH:
-            LOG("push %08x\n", *((uint32_t *)(cpu->ip + 1)));
+            u = *((uint32_t *)(cpu->ip + 1));
+            LOG("push %08x\n", u);
             memcpy(cpu->sp, cpu->ip + 1, 4);
             cpu->sp += 4;
             cpu->ip += 4;
@@ -294,75 +296,73 @@ step_cpu(cpu_t *cpu)
             break;
 
         case POP:
-            LOG("pop %08x\n", *((uint32_t *)(cpu->sp - 4)));
+            LOG("pop %08x\n", t);
             cpu->sp -= 4;
             cpu->ip++;
             break;
 
         case SWAP:
             LOG("swap\n");
-            t = *((uint32_t *)(cpu->sp - 8));
             memcpy(cpu->sp - 8, cpu->sp - 4, 4);
-            memcpy(cpu->sp - 4, &t, 4);
+            memcpy(cpu->sp - 4, &v, 4);
             cpu->ip++;
             break;
 
         case INT:
             irq = *((uint32_t *)(cpu->sp - 4));
             cpu->sp -= 4;
+            t = *((uint32_t *)(cpu->sp - 4));
+            v = *((uint32_t *)(cpu->sp - 8));
 
             switch (irq) {
+                case IRQ_DBG:
+                    LOG("debug %i\n", t);
+                    cpu->debug = t == 1;
+                    break;
+
                 case IRQ_CLK:
-                    LOG("clk timer %08x -> %08x\n",
-                            *((uint32_t *)(cpu->sp - 8)),
-                            *((uint32_t *)(cpu->sp - 4)));
-                    set_timer_isr(cpu,
-                            *((uint32_t *)(cpu->sp - 4)),
-                            *((uint32_t *)(cpu->sp - 8)));
+                    LOG("clk timer %08x -> %08x\n", v, t);
+                    set_timer_isr(cpu, t, v);
                     cpu->sp -= 8;
                     break;
 
                 case IRQ_KBD:
-                    LOG("kbd int %08x\n", *((uint32_t *)(cpu->sp - 4)));
-                    set_kbd_isr(cpu, *((uint32_t *)(cpu->sp - 4)));
+                    LOG("kbd int %08x\n", t);
+                    set_kbd_isr(cpu, t);
                     cpu->sp -= 4;
                     break;
 
                 case IRQ_TTY:
-                    LOG("tty out %08x\n", *((uint32_t *)(cpu->sp - 4)));
-                    write_tty(cpu->tty, *((char *)(cpu->sp - 4)));
+                    LOG("tty out %08x\n", t);
+                    write_tty(cpu->tty, t);
                     cpu->sp -= 4;
                     break;
 
-                /*
                 case IRQ_DISK_SET:
-                    LOG("disk set %08x.. ", *(cpu->sp));
-                    set_disk_position(cpu->disk, *(cpu->sp--));
+                    LOG("disk set %08x.. ", t);
+                    set_disk_position(cpu->disk, t);
                     LOG("%08lx\n", cpu->disk->pos);
                     break;
 
                 case IRQ_DISK_RD:
                     LOG("disk read from %08lx: ", cpu->disk->pos);
-                    t = *(cpu->sp);
-                    *(cpu->sp) = read_disk(cpu->disk);
-                    LOG("%08x\n", *(cpu->sp));
+                    u = read_disk(cpu->disk);
+                    memcpy(cpu->sp - 4, &u, 4);
+                    LOG("%08x\n", u);
                     //handle_irq(cpu, &cpu->mem[t]);
                     break;
 
                 case IRQ_DISK_WR:
-                    LOG("disk write -> %08x @ %08lx\n", *(cpu->sp), cpu->disk->pos);
-                    write_disk(cpu->disk, *(cpu->sp--));
+                    LOG("disk write -> %08x @ %08lx\n", t, cpu->disk->pos);
+                    write_disk(cpu->disk, t);
                     break;
-                */
 
                 case IRQ_P0_IN:
                 case IRQ_P1_IN:
                 case IRQ_P2_IN:
                 case IRQ_P3_IN:
-                    LOG("port %i -> %08x\n", (irq - IRQ_P0_IN) / 8,
-                            *((uint32_t *)(cpu->sp - 4)));
-                    set_port_isr(cpu, (irq - IRQ_P0_IN) / 8,
-                            *((uint32_t *)(cpu->sp - 4)));
+                    LOG("port %i -> %08x\n", (irq - IRQ_P0_IN) / 8, t);
+                    set_port_isr(cpu,        (irq - IRQ_P0_IN) / 8, t);
                     cpu->sp -= 4;
                     break;
 
@@ -370,31 +370,21 @@ step_cpu(cpu_t *cpu)
                 case IRQ_P1_OUT:
                 case IRQ_P2_OUT:
                 case IRQ_P3_OUT:
-                    LOG("port %i < %02x\n", (irq - IRQ_P0_OUT) / 8,
-                            *((uint32_t *)(cpu->sp - 4)));
-                    write_port(cpu->port0 + (irq - IRQ_P0_OUT) / 8,
-                            *(cpu->sp - 4));
+                    LOG("port %i < %02x\n", (irq - IRQ_P0_OUT) / 8, t);
+                    write_port(cpu->port0 + (irq - IRQ_P0_OUT) / 8, t);
                     cpu->sp -= 4;
-                    break;
-                            
-                default:
-                    LOG("unhandled irq %08x\n", *(cpu->sp));
                     break;
             }
 
             cpu->ip++;
             break;
-
-        default:
-            LOG("unknown instruction 0x%02x\n", op);
-            assert(false);
     }
 
     cpu->cycles++;
 
-    print_region(cpu, cpu->ip, cpu->mem, 0x200, "code", 34);
-    print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x40, "stack", 31);
-    print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x20, "rstack", 32);
+    //print_region(cpu, cpu->ip, cpu->mem, 0x60, "code", 34);
+    //print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x40, "stack", 31);
+    //print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x20, "rstack", 32);
 }
 
 void
@@ -447,8 +437,33 @@ handle_irq(cpu_t *cpu, uint8_t *isr)
     memcpy(cpu->bp, &addr, 4);
     cpu->bp += 4;
     cpu->ip = isr;
-    while (cpu->bp != ret)
+
+    // faffery - go backwards in order to find the label that the
+    // irq handler is in
+    int c = 0;
+    char *prev = cpu->src[(uint32_t)(cpu->ip - cpu->mem) - 1];
+    char *curr = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
+    while (true) {
+        if (cpu->src[c] == prev) {
+            while (true) {
+                if (cpu->src[c] != prev && cpu->src[c] != curr &&
+                    strlen(cpu->src[c]) > 0) {
+                    LOG("%08lx ", cpu->ip - cpu->mem);
+                    LOG("[\033[36m%-80s\033[0m]\n", cpu->src[c]);
+                }
+                if (cpu->src[c++] == curr)
+                    break;
+            }
+            break;
+        }
+        c++;
+    }
+
+    uint8_t *old_ip;
+    while (cpu->bp != ret) {
+        old_ip = cpu->ip;
         step_cpu(cpu);
+    }
 }
 
 void

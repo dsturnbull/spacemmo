@@ -21,19 +21,22 @@ typedef struct sasm_st {
     struct label labels[MAX_LABELS];
     struct label missing[MAX_MISSINGS];
 
-    size_t prog_sz;
-    size_t prog_len;
+    int prog_sz;
+    int prog_len;
     uint8_t *prog;
     uint8_t *ip;
     uint8_t *data;
 
-    size_t lineno;
+    int lineno;
+    FILE *src_fp, *sys_fp, *dbg_fp;
 } sasm_t;
 
 sasm_t * init_sasm();
-size_t assemble(sasm_t *, const char *);
-void parse_file(sasm_t *, const char *);
+void free_sasm(sasm_t *);
+void assemble(sasm_t *, char *);
+void parse_file(sasm_t *, char *);
 uint32_t read_value(sasm_t *, char *, uint8_t *);
+void write_debug_line(sasm_t *);
 void push(sasm_t *, char **, uint8_t, size_t);
 void define_constant(sasm_t *, char *, uint32_t);
 void define_data(sasm_t *, char *, char *);

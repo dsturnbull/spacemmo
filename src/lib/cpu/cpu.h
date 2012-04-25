@@ -31,6 +31,7 @@ typedef struct cpu_st {
     bool debug;
     long cycles;
     bool halted;
+    char **src;
 
     tty_t *tty;
     disk_t *disk;
@@ -38,20 +39,21 @@ typedef struct cpu_st {
 } cpu_t;
 
 typedef enum irq_e {
-    IRQ_CLK     =   0x0f80,
-    IRQ_TTY     =   0x0f84,
-    IRQ_KBD     =   0x0f88,
-    IRQ_DISK_SET=   0x0f8c,
-    IRQ_DISK_RD =   0x0f90,
-    IRQ_DISK_WR =   0x0f94,
-    IRQ_P0_IN   =   0x0f98,
-    IRQ_P0_OUT  =   0x0f9c,
-    IRQ_P1_IN   =   0x0fa0,
-    IRQ_P1_OUT  =   0x0fa4,
-    IRQ_P2_IN   =   0x0fa8,
-    IRQ_P2_OUT  =   0x0fac,
-    IRQ_P3_IN   =   0x0fb8,
-    IRQ_P3_OUT  =   0x0fb4,
+    IRQ_DBG     =   0x0f80,
+    IRQ_CLK     =   0x0f90,
+    IRQ_TTY     =   0x0f94,
+    IRQ_KBD     =   0x0f98,
+    IRQ_DISK_SET=   0x0f9c,
+    IRQ_DISK_RD =   0x0fa0,
+    IRQ_DISK_WR =   0x0fa4,
+    IRQ_P0_IN   =   0x0fa8,
+    IRQ_P0_OUT  =   0x0fac,
+    IRQ_P1_IN   =   0x0fb0,
+    IRQ_P1_OUT  =   0x0fb4,
+    IRQ_P2_IN   =   0x0fb8,
+    IRQ_P2_OUT  =   0x0fbc,
+    IRQ_P3_IN   =   0x0fc8,
+    IRQ_P3_OUT  =   0x0fc4,
 } irq_t;
 
 typedef enum op_e {
@@ -79,7 +81,8 @@ typedef enum op_e {
 } op_t;
 
 cpu_t * init_cpu();
-void load_cpu(cpu_t *, uint8_t *, size_t);
+void free_cpu(cpu_t *);
+void load_cpu(cpu_t *, char *);
 void run_cpu(cpu_t *);
 void step_cpu(cpu_t *);
 void reset_cpu(cpu_t *);

@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <util.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -19,6 +18,7 @@ init_tty()
 
     //fcntl(tty->master, F_SETFL, O_NONBLOCK);
     tty->fn = strdup(ttyname(tty->slave));
+    printf("%s\n", tty->fn);
 
     //struct termios tio;
     //tcgetattr(tty->master, &tio);

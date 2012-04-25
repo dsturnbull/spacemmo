@@ -1,8 +1,6 @@
-#include <histedit.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "src/lib/client.h"
 #include "src/lib/server.h"
@@ -209,9 +207,9 @@ void
 cmd_cpu_load(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    sasm_t *sasm = init_sasm();
-    assemble(sasm, argv[1]);
-    load_cpu(cpu, sasm->prog, sasm->prog_len);
+    //sasm_t *sasm = init_sasm();
+    //assemble(sasm, argv[1]);
+    //load_cpu(cpu, (char *)sasm->prog, sasm->prog_len);
 }
 
 void

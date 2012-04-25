@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 
+#include "src/lib/spacemmo.h"
 #include "src/lib/cpu/sasm.h"
 
 #define GET_CONST(c) {                                                      \
@@ -12,6 +13,8 @@
         return c;                                                           \
     }                                                                       \
 } while (0)
+
+static char *orig = NULL;
 
 sasm_t *
 init_sasm()
@@ -23,15 +26,24 @@ init_sasm()
     }
 
     sasm->prog_sz = 0x10000;
-    sasm->prog = calloc(sasm->prog_sz, sizeof(uint32_t));
+    sasm->prog = calloc(sasm->prog_sz, sizeof(*sasm->prog));
     sasm->ip = sasm->prog;
+    sasm->lineno = -1;
 
     return sasm;
 }
 
-size_t
-assemble(sasm_t *sasm, const char *fn)
+void
+free_sasm(sasm_t *sasm)
 {
+    free(sasm->prog);
+    free(sasm);
+}
+
+void
+assemble(sasm_t *sasm, char *src_file)
+{
+    define_constant(sasm, "DBG",        IRQ_DBG);
     define_constant(sasm, "CLK",        IRQ_CLK);
     define_constant(sasm, "KBD",        IRQ_KBD);
     define_constant(sasm, "TTY",        IRQ_TTY);
@@ -49,11 +61,29 @@ assemble(sasm_t *sasm, const char *fn)
     define_constant(sasm, "IO_3_IN",    IRQ_P3_IN);
     define_constant(sasm, "IO_3_OUT",   IRQ_P3_OUT);
 
+    char *sys_file = replace_ext(src_file, ".sys");
+    char *dbg_file = replace_ext(src_file, ".dbg");
+
+    if ((sasm->src_fp = fopen(src_file, "r")) == NULL) {
+        perror("src_fp");
+        exit(1);
+    }
+
+    if ((sasm->sys_fp = fopen(sys_file, "w")) == NULL) {
+        perror("sys_fp");
+        exit(1);
+    }
+
+    if ((sasm->dbg_fp = fopen(dbg_file, "w")) == NULL) {
+        perror("dbg_fp");
+        exit(1);
+    }
+
     // make room for jumping to _main
     sasm->ip += 7;
 
     // assemble
-    parse_file(sasm, fn);
+    parse_file(sasm, src_file);
     sasm->prog_len = sasm->ip - sasm->prog;
 
     // write data to end of prog
@@ -80,6 +110,7 @@ assemble(sasm_t *sasm, const char *fn)
     }
 
     sasm->ip = sasm->prog;
+    orig = NULL;
     push(sasm, NULL, PUSH, 0);
     push(sasm, NULL, main_loc >>  0 & 0xff, 0);
     push(sasm, NULL, main_loc >>  8 & 0xff, 0);
@@ -88,11 +119,17 @@ assemble(sasm_t *sasm, const char *fn)
     push(sasm, NULL, CALL, 0);
     push(sasm, NULL, HLT, 0);
 
-    return sasm->prog_len;
+    fwrite(sasm->prog, sasm->prog_len, 1, sasm->sys_fp);
+
+    fclose(sasm->sys_fp);
+    free(sys_file);
+
+    fclose(sasm->dbg_fp);
+    free(dbg_file);
 }
 
 void
-parse_file(sasm_t *sasm, const char *fn)
+parse_file(sasm_t *sasm, char *fn)
 {
     // load asm file
     struct stat st;
@@ -119,13 +156,20 @@ parse_file(sasm_t *sasm, const char *fn)
     char *line;
 
     while ((line = strsep(&inp, "\n")) != NULL && inp != NULL) {
-        sasm->lineno++;
+        if (orig)
+            free(orig);
+        orig = strdup(line);
         normalise_line(&line);
 
         char *ops = strsep(&line, " ");
+        sasm->lineno++;
 
         // blank line
         if (!ops)
+            continue;
+
+        // comment
+        if (ops[0] == ';')
             continue;
 
         // label
@@ -133,10 +177,6 @@ parse_file(sasm_t *sasm, const char *fn)
             make_label(sasm, ops);
             continue;
         }
-
-        // comment
-        if (ops[0] == ';')
-            continue;
 
         // define a preprocessor constant
         if (strcmp(ops, "%define") == 0) {
@@ -268,14 +308,30 @@ read_value(sasm_t *sasm, char *s, uint8_t *ip)
 }
 
 void
+write_debug_line(sasm_t *sasm)
+{
+    uint32_t t = sasm->ip - sasm->prog;
+    if (orig) {
+        fwrite(&t, sizeof(t), 1, sasm->dbg_fp);
+        t = strlen(orig);
+        fwrite(&t, sizeof(t), 1, sasm->dbg_fp);
+        fwrite(orig, t, 1, sasm->dbg_fp);
+    }
+}
+
+void
 push(sasm_t *sasm, char **line, uint8_t op, size_t n)
 {
+    write_debug_line(sasm);
     *(sasm->ip)++ = op;
     for (size_t i = 0; i < n; i++) {
         char *s = strsep(line, " ");
         uint32_t arg = read_value(sasm, s, sasm->ip);
         memcpy(sasm->ip, &arg, 4);
-        sasm->ip += 4;
+        for (int i = 0; i < 4; i++) {
+            write_debug_line(sasm);
+            sasm->ip++;
+        }
     }
 }
 
@@ -456,7 +512,7 @@ write_data_labels(sasm_t *sasm)
 void
 replace_sentinels(sasm_t *sasm)
 {
-    for (size_t i = 0; i < sasm->prog_len; i++) {
+    for (int i = 0; i < sasm->prog_len; i++) {
         if (sasm->prog[i + 0] == 0xef &&
             sasm->prog[i + 1] == 0xbe &&
             sasm->prog[i + 2] == 0xad &&
@@ -476,7 +532,7 @@ replace_sentinels(sasm_t *sasm)
                 }
             }
             if (!found) {
-                fprintf(stderr, "unresolved: %08lx\n", i);
+                fprintf(stderr, "unresolved: %08x\n", i);
                 print_prog(sasm);
                 exit(1);
             }
@@ -488,8 +544,8 @@ void
 print_prog(sasm_t *sasm)
 {
     uint8_t *p = sasm->prog;
-    for (size_t i = 0; i < sasm->prog_len; i += 16) {
-        fprintf(stderr, "%08lx: ", i);
+    for (int i = 0; i < sasm->prog_len; i += 16) {
+        fprintf(stderr, "%08x: ", i);
         for (int j = 0; j < 16; j++) {
             fprintf(stderr, "%02x ", *(p++));
         }
@@ -497,5 +553,4 @@ print_prog(sasm_t *sasm)
     }
     fprintf(stderr, "\n");
 }
-
 

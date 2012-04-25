@@ -23,6 +23,7 @@ typedef uint8_t timer_t;
 void init_spacemmo();
 double time_delta(timer_t);
 void init_default_world(world_t *);
+char * replace_ext(char *, char *);
 
 #endif
 
