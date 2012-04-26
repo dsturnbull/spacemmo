@@ -6,10 +6,10 @@
 #include <stdbool.h>
 #include <sys/event.h>
 
-#define CPU_MEMORY_SZ       0x1000  // 4KB
-#define CPU_STACK           0x0e80  // 32 stack depth
-#define CPU_RET_STACK       0x0f00  // 32 stack depth
-#define CPU_IDT             0x0f80  // 32 interrupts
+#define CPU_MEMORY_SZ       0x10000 // 64KB
+#define CPU_STACK           0xfe80  // 32 stack depth
+#define CPU_RET_STACK       0xff00  // 32 stack depth
+#define CPU_IDT             0xff80  // 32 interrupts
 
 #define LOG(...) do {                                                       \
     if (cpu->debug)                                                         \
@@ -39,21 +39,21 @@ typedef struct cpu_st {
 } cpu_t;
 
 typedef enum irq_e {
-    IRQ_DBG     =   0x0f80,
-    IRQ_CLK     =   0x0f90,
-    IRQ_TTY     =   0x0f94,
-    IRQ_KBD     =   0x0f98,
-    IRQ_DISK_SET=   0x0f9c,
-    IRQ_DISK_RD =   0x0fa0,
-    IRQ_DISK_WR =   0x0fa4,
-    IRQ_P0_IN   =   0x0fa8,
-    IRQ_P0_OUT  =   0x0fac,
-    IRQ_P1_IN   =   0x0fb0,
-    IRQ_P1_OUT  =   0x0fb4,
-    IRQ_P2_IN   =   0x0fb8,
-    IRQ_P2_OUT  =   0x0fbc,
-    IRQ_P3_IN   =   0x0fc8,
-    IRQ_P3_OUT  =   0x0fc4,
+    IRQ_DBG     =   0xff80,
+    IRQ_CLK     =   0xff90,
+    IRQ_TTY     =   0xff94,
+    IRQ_KBD     =   0xff98,
+    IRQ_DISK_SET=   0xff9c,
+    IRQ_DISK_RD =   0xffa0,
+    IRQ_DISK_WR =   0xffa4,
+    IRQ_P0_IN   =   0xffa8,
+    IRQ_P0_OUT  =   0xffac,
+    IRQ_P1_IN   =   0xffb0,
+    IRQ_P1_OUT  =   0xffb4,
+    IRQ_P2_IN   =   0xffb8,
+    IRQ_P2_OUT  =   0xffbc,
+    IRQ_P3_IN   =   0xffc8,
+    IRQ_P3_OUT  =   0xffc4,
 } irq_t;
 
 typedef enum op_e {
@@ -86,7 +86,7 @@ void load_cpu(cpu_t *, char *);
 void run_cpu(cpu_t *);
 void step_cpu(cpu_t *);
 void reset_cpu(cpu_t *);
-void print_region(cpu_t *, uint8_t *, uint8_t *, size_t, char *, int);
+void print_region(cpu_t *, uint8_t *, uint8_t *, size_t, int);
 
 void handle_irq(cpu_t *, uint8_t *);
 void set_timer_isr(cpu_t *, uint32_t, uint32_t);

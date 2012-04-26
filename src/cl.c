@@ -41,8 +41,8 @@ main(int argc, char *argv[])
     //client->ui->input = client->entity->cpu->kbd->input;
 
     sasm_t *sasm = init_sasm();
-    assemble(sasm, "data/progs/thrusters.s");
-    //load_cpu(client->entity->cpu, (char *)sasm->prog, sasm->prog_len);
+    assemble(sasm, "data/progs/floating.s");
+    load_cpu(client->entity->cpu, "data/progs/floating.sys");
     free_sasm(sasm);
     client->entity->cpu->halted = false;
 

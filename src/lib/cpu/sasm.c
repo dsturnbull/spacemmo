@@ -370,7 +370,7 @@ define_data(sasm_t *sasm, char *name, char *data)
         }
 
         sasm->labels[i].name = strdup(name);
-        sasm->labels[i].data_len = strlen(data);
+        sasm->labels[i].data_len = strlen(data) * sizeof(uint32_t);
         sasm->labels[i].data = malloc(sasm->labels[i].data_len);
 
         for (size_t j = 0; j < strlen(data); j++) {
@@ -399,7 +399,7 @@ define_data(sasm_t *sasm, char *name, char *data)
                 break;
 
         sasm->labels[j].name = strdup(name);
-        sasm->labels[j].addr = sasm->labels[i].data_len;
+        sasm->labels[j].addr = sasm->labels[i].data_len / sizeof(uint32_t);
     }
 }
 

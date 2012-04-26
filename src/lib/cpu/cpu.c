@@ -86,7 +86,7 @@ load_cpu(cpu_t *cpu, char *sys_file)
         exit(1);
     }
 
-    cpu->src = malloc(st.st_size * sizeof(char *));
+    cpu->src = calloc(st.st_size, sizeof(char *));
     while (true) {
         int pos, len;
         if (fread(&pos, sizeof(pos), 1, dbg_fp) == 0)
@@ -139,13 +139,13 @@ step_cpu(cpu_t *cpu)
     op_t op = *(cpu->ip);
     prev = cpu->ip;
 
-    LOG("%08lx ", cpu->ip - cpu->mem);
+    LOG("%04lx ", cpu->ip - cpu->mem);
 
     t = *((uint32_t *)(cpu->sp - 4));
     v = *((uint32_t *)(cpu->sp - 8));
 
     char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
-    LOG("[\033[36m%-80s\033[0m] ", line);
+    LOG("[\033[36m%-97s\033[0m] ", line);
 
     switch (op) {
         case NOP:
@@ -159,7 +159,7 @@ step_cpu(cpu_t *cpu)
             return;
 
         case LOAD:
-            LOG("load %08x from %08x\n", cpu->mem[t], t);
+            LOG("load %08x from %08x\n", *(uint32_t *)&cpu->mem[t], t);
             memcpy(cpu->sp - 4, &cpu->mem[t], 4);
             cpu->ip++;
             break;
@@ -382,9 +382,9 @@ step_cpu(cpu_t *cpu)
 
     cpu->cycles++;
 
-    //print_region(cpu, cpu->ip, cpu->mem, 0x60, "code", 34);
-    //print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x40, "stack", 31);
-    //print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x20, "rstack", 32);
+    print_region(cpu, cpu->ip, cpu->mem, 0x80, 34);
+    print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x80, 31);
+    print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
 }
 
 void
@@ -393,14 +393,13 @@ reset_cpu(cpu_t *cpu)
 }
 
 void
-print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len,
-        char *title, int c)
+print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len, int c)
 {
     for (size_t i = 0; i < len; i++) {
-        if (i % 16 == 0) {
+        if (i % 32 == 0) {
             if (i)
                 LOG("\n");
-            LOG("%12s %08lx: ", title, i);
+            LOG("%04lx: ", data - cpu->mem + i);
         }
 
         if (p == cpu->ip) {
@@ -448,8 +447,8 @@ handle_irq(cpu_t *cpu, uint8_t *isr)
             while (true) {
                 if (cpu->src[c] != prev && cpu->src[c] != curr &&
                     strlen(cpu->src[c]) > 0) {
-                    LOG("%08lx ", cpu->ip - cpu->mem);
-                    LOG("[\033[36m%-80s\033[0m]\n", cpu->src[c]);
+                    LOG("%04lx ", cpu->ip - cpu->mem);
+                    LOG("[\033[36m%-97s\033[0m]\n", cpu->src[c]);
                 }
                 if (cpu->src[c++] == curr)
                     break;
@@ -464,6 +463,8 @@ handle_irq(cpu_t *cpu, uint8_t *isr)
         old_ip = cpu->ip;
         step_cpu(cpu);
     }
+
+    LOG("\n");
 }
 
 void

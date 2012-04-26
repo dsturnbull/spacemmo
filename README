@@ -1,3 +1,18 @@
+vm:
+	* float/double hardware
+	* fpu
+	* gfx
+	* sound
+	* radar
+	* netcode
+	* network
+	* interactive debugger
+
+game:
+	* c++
+	* gfx
+	* sound
+
 client_t
         entity_t entity
                 entity_id_t id

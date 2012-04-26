@@ -53,8 +53,8 @@ test_define_data_string()
     char *data = strdup("\"hello\"");
     define_data(sasm, "test_define_data_string", data);
     assert_equals(strcmp(sasm->labels[1].name, "test_define_data_string"), 0);
-    assert_equals((int)sasm->labels[1].data_len, 5);
-    for (size_t i = 0; i < sasm->labels[1].data_len; i++)
+    assert_equals((int)sasm->labels[1].data_len, 20);
+    for (size_t i = 0; i < sasm->labels[1].data_len / sizeof(uint32_t); i++)
         assert_equals(sasm->labels[1].data[i], (uint32_t)data[i + 1]);
     return true;
 }
