@@ -1,4 +1,4 @@
-%import	"s/util.s"
+%include	"s/util.s"
 
 %dw	COUNTER
 

@@ -1,3 +1,5 @@
+%include "data/progs/util.s"
+
 %define THRUSTER_STATUS 0x0
 %define THRUSTER_INC_X  0x1
 %define THRUSTER_DEC_X  0x2
@@ -11,11 +13,9 @@
 %dw status_p
 
 %data thrusters_set "thrusters set"
-%data thrusters_set_len @-thrusters_set
+%data thrusters_set_len $-thrusters_set
 %data help "w - fwd, s - back, a - left, d - right, q - up, z - down, sp - info"
-%data help_len @-help
-
-%import "data/progs/util.s"
+%data help_len $-help
 
 _main:
     push _kbd_isr

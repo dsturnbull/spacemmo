@@ -1,12 +1,12 @@
-%import	"s/fs.s"
-%import	"s/util.s"
+%include	"s/fs.s"
+%include	"s/util.s"
 
 %data	FN1	"test1"
-%data	FN1_LEN	@-FN1
+%data	FN1_LEN	$-FN1
 %data	FN2	"test2"
-%data	FN2_LEN	@-FN2
+%data	FN2_LEN	$-FN2
 %data	DATA	"hello, my name is sven."
-%data	DATA_LEN	@-DATA
+%data	DATA_LEN	$-DATA
 %dw	ENTRY	0x200
 
 _main:

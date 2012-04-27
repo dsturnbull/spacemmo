@@ -1,7 +1,7 @@
-%dw PRNT_P
-%dw PRNT_L
-%dw LOOP_T
-%dw PRINT_NUM_POWER
+dw PRNT_P
+dw PRNT_L
+dw LOOP_T
+dw PRINT_NUM_POWER
 
 ; int len, char *str
 _tty_print_string:

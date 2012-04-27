@@ -165,38 +165,28 @@ parse_file(sasm_t *sasm, char *fn)
         sasm->lineno++;
 
         // blank line
-        if (!ops)
+        if (!ops) {
             continue;
 
         // comment
-        if (ops[0] == ';')
+        } else if (ops[0] == ';') {
             continue;
 
         // label
-        if (ops[0] == '_') {
+        } else if (ops[0] == '_') {
             make_label(sasm, ops);
             continue;
-        }
 
         // define a preprocessor constant
-        if (strcmp(ops, "%define") == 0) {
+        } else if (strcmp(ops, "%define") == 0) {
             char *name = strsep(&line, " ");
             uint32_t value;
             sscanf(strsep(&line, " "), "%x", &value);
             define_constant(sasm, name, value);
             continue;
-        }
-
-        // insert data at end of code
-        if (strcmp(ops, "%data") == 0) {
-            char *name = strsep(&line, " ");
-            char *data = line;
-            define_data(sasm, name, data);
-            continue;
-        }
 
         // declare a variable
-        if (strcmp(ops, "%dw") == 0) {
+        } else if (strcmp(ops, "dw") == 0) {
             char *name = strsep(&line, " ");
             char *size = strsep(&line, " ");
 
@@ -206,19 +196,38 @@ parse_file(sasm_t *sasm, char *fn)
 
             define_variable(sasm, name, width);
             continue;
-        }
 
         // include another file
-        if (strcmp(ops, "%import") == 0) {
+        } else if (strcmp(ops, "%include") == 0) {
             char *fn = strsep(&line, " ");
             fn++; fn[strlen(fn) - 1] = '\0';
             parse_file(sasm, fn);
             continue;
-        }
 
         // empty line
-        if (strlen(ops) == 0)
+        } else if (strlen(ops) == 0) {
             continue;
+
+        // insert data at end of code
+        } else {
+            char *name = ops;
+
+            // if the line consists of more than 1 element
+            if (line) {
+                // if the next element is db or equ then we look at the 3rd
+                ops = strsep(&line, " ");
+                if (strcmp(ops, "db")  == 0 ||
+                    strcmp(ops, "equ") == 0) {
+                    char *data = line;
+                    define_data(sasm, name, data);
+                    continue;
+                }
+            }
+
+            // otherwise reverse the previous manipulation
+            line = ops;
+            ops = name;
+        }
 
         op_t op = parse_op(ops);
 
@@ -377,8 +386,8 @@ define_data(sasm_t *sasm, char *name, char *data)
             sasm->labels[i].data[j] = data[j];
         }
 
-    } else if (data[0] == '@') {
-        data += 2; // get rid of '@-'
+    } else if (data[0] == '$') {
+        data += 2; // get rid of '$-'
         //define_constant(sasm, name, data);
         // the length of the previous named data label
         int i;

@@ -11,7 +11,9 @@
 #include "src/lib/ui/console.h"
 #include "src/lib/cpu/sasm.h"
 #include "src/lib/cpu/cpu.h"
-#include "src/lib/cpu/hardware/thruster.h"
+
+#include "src/lib/cpu/hardware/peripheral/thruster.h"
+#include "src/lib/cpu/hardware/peripheral/radar.h"
 
 int
 main(int argc, char *argv[])
@@ -40,14 +42,15 @@ main(int argc, char *argv[])
     //client->entity->cpu->kbd->input = init_input(client->ui);
     //client->ui->input = client->entity->cpu->kbd->input;
 
+    cpu_t *cpu = client->entity->cpu;
     sasm_t *sasm = init_sasm();
-    assemble(sasm, "data/progs/floating.s");
-    load_cpu(client->entity->cpu, "data/progs/floating.sys");
+    assemble(sasm, "data/progs/radar.s");
+    load_cpu(cpu, "data/progs/radar.sys");
     free_sasm(sasm);
-    client->entity->cpu->halted = false;
+    cpu->halted = false;
 
-    thruster_t *thruster = init_thruster(client->entity->cpu->port0,
-            client->entity->acc);
+    thruster_t *thruster = init_thruster(cpu->port0, client->entity->acc);
+    radar_t *radar = init_radar(cpu->port1, client->entity->system);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

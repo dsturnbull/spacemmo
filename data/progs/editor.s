@@ -1,11 +1,11 @@
-%import "data/progs/fs.s"
-%import "data/progs/util.s"
+%include "data/progs/fs.s"
+%include "data/progs/util.s"
 
 %data menu_str "[n]ew [l]ist"
-%data menu_str_len @-menu_str
+%data menu_str_len $-menu_str
 
 %data new_file "new file name:"
-%data new_file_len @-new_file
+%data new_file_len $-new_file
 
 ;%data test  "\033[36m"
 

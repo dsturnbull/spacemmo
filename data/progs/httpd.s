@@ -2,13 +2,13 @@
 %dw	FD
 
 %data	STATUS	"HTTP/1.0 200 OK"
-%data	STATUS_LEN	@-STATUS
+%data	STATUS_LEN	$-STATUS
 %data	HDR	"Content-Length: "
-%data	HDR_LEN	@-HDR
+%data	HDR_LEN	$-HDR
 %data	PAGE	"<html><body><p>This webserver is running on an emulated cpu.</p><p>It's pretty basic. It reads input until it sees \r\n\r\n, ignores actual request and/or headers, and spits out this constant string.</p><p>The hardware device the cpu sees is called 'sock' and will be reused for all network communication, obviously, but also will serve as a link to peripheral hardware - engines, missiles etc.<p>This page takes about 5.5ms to render.</p></body></html>"
-%data	PAGE_LEN	@-PAGE
+%data	PAGE_LEN	$-PAGE
 
-%import	"s/util.s"
+%include	"s/util.s"
 
 _main:
 	; handle connections

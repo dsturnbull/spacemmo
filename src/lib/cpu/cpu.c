@@ -385,6 +385,7 @@ step_cpu(cpu_t *cpu)
     print_region(cpu, cpu->ip, cpu->mem, 0x80, 34);
     print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x80, 31);
     print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
+    print_region(cpu, cpu->bp, &cpu->mem[CPU_IDT], 0x80, 32);
 }
 
 void
@@ -555,7 +556,7 @@ handle_port_read(cpu_t *cpu, port_t *port)
         memset(cpu->sp, 0, 4);
         *(cpu->sp) = c;
         cpu->sp += 4;
-        uint32_t ptr = *(uint32_t *)(&cpu->mem[IRQ_P0_IN + port->n]);
+        uint32_t ptr = *(uint32_t *)(&cpu->mem[IRQ_P0_IN + port->n * 8]);
         LOG("port char: %02x, jumping to %08x\n", c, ptr);
         handle_irq(cpu, &cpu->mem[ptr]);
     }

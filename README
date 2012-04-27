@@ -1,12 +1,18 @@
 vm:
-	* float/double hardware
+	* bytes
+	* dos
+	* unix
 	* fpu
 	* gfx
 	* sound
-	* radar
 	* netcode
+
+hw:
+	* radar
+	* lifesupport
+	* engine
+	* nav
 	* network
-	* interactive debugger
 
 game:
 	* c++
