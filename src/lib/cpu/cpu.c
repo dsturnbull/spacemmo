@@ -45,6 +45,8 @@ init_cpu()
 
     cpu->halted = true;
 
+    wait_tty_slave(cpu->tty);
+
     return cpu;
 }
 
@@ -361,7 +363,7 @@ step_cpu(cpu_t *cpu)
                 case IRQ_P1_IN:
                 case IRQ_P2_IN:
                 case IRQ_P3_IN:
-                    LOG("port %i -> %08x\n", (irq - IRQ_P0_IN) / 8, t);
+                    LOG("port %i @ %08x\n", (irq - IRQ_P0_IN) / 8, t);
                     set_port_isr(cpu,        (irq - IRQ_P0_IN) / 8, t);
                     cpu->sp -= 4;
                     break;
@@ -382,10 +384,10 @@ step_cpu(cpu_t *cpu)
 
     cpu->cycles++;
 
-    print_region(cpu, cpu->ip, cpu->mem, 0x80, 34);
-    print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x80, 31);
-    print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
-    print_region(cpu, cpu->bp, &cpu->mem[CPU_IDT], 0x80, 32);
+    //print_region(cpu, cpu->ip, cpu->mem, 0x80, 34);
+    //print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x80, 31);
+    //print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
+    //print_region(cpu, cpu->bp, &cpu->mem[CPU_IDT], 0x80, 32);
 }
 
 void
@@ -515,7 +517,7 @@ handle_kbd(cpu_t *cpu)
         memset(cpu->sp, 0, 4);
         *(cpu->sp) = c;
         cpu->sp += 4;
-        LOG("char: %02x, jumping to %08x\n",
+        LOG("kbd char: %02x, jumping to %08x\n",
                 c, *(uint32_t *)(&cpu->mem[IRQ_KBD]));
         handle_irq(cpu, &cpu->mem[*(uint32_t *)(&cpu->mem[IRQ_KBD])]);
     }

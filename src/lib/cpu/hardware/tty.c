@@ -3,6 +3,7 @@
 #include <util.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "src/lib/cpu/hardware/tty.h"
 
@@ -17,6 +18,8 @@ init_tty()
     }
 
     //fcntl(tty->master, F_SETFL, O_NONBLOCK);
+    //fcntl(tty->slave, F_SETFL, O_NONBLOCK);
+
     tty->fn = strdup(ttyname(tty->slave));
     printf("%s\n", tty->fn);
 
@@ -31,7 +34,6 @@ init_tty()
 bool
 read_tty(tty_t *tty, char *c)
 {
-
     if (read(tty->master, c, 1) == 1)
         return true;
     return false;
@@ -41,10 +43,19 @@ void
 write_tty(tty_t *tty, char c)
 {
     // TODO fix the terminal settings
-    if (c == 0xd) {
-        char d = 0xa;
+    if (c == 0xa || c == 0xd) {
+        char d = 0xd;
         write(tty->master, &d, 1);
+        d = 0xa;
+        write(tty->master, &d, 1);
+    } else {
+        write(tty->master, &c, 1);
     }
-    write(tty->master, &c, 1);
+}
+
+void
+wait_tty_slave(tty_t *tty)
+{
+    read(tty->master, NULL, 1);
 }
 

@@ -45,7 +45,7 @@ main(int argc, char *argv[])
     cpu_t *cpu = client->entity->cpu;
     sasm_t *sasm = init_sasm();
     assemble(sasm, "data/progs/radar.s");
-    load_cpu(cpu, "data/progs/radar.sys");
+    load_cpu(cpu,  "data/progs/radar.sys");
     free_sasm(sasm);
     cpu->halted = false;
 
