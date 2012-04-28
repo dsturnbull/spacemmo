@@ -114,7 +114,7 @@ push_qword:
 
 push_var:
 	QPUSH QTEXT QNEWLINE {
-		variable_t *var = find_variable(ysasm, $2);
+		variable_t *var = find_or_create_variable(ysasm, $2);
 		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1);
 		push1(ysasm, PUSH, (uint64_t *)&var->addr, sizeof(uint64_t));
 	};
