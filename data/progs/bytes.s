@@ -5,36 +5,42 @@ dq q 0xffffffffffffffff
 
 e equ 0x84
 
-;db a 'a'
-;db sr 'hello'
+db a 'a'
+db sr "hello"
 
 _main:
-    push byte 0x3
+    push 1
+    push byte 0x10
     push word 0x0101
     push dword 0x01010101
     push qword 0x0101010101010101
-    push 37
 
-    push byte b
-    push word w
-    push dword d 
-    push qword q
+    push b
+    load byte
+    push w
+    load word
+    push d 
+    load dword
     push q
+    load qword
 
     push byte 1
+    push a
+    pop
     pop byte
 
-    pop
+    ;push e
+
     pop qword
     pop dword
     pop word
     pop byte
 
-    pop
     pop qword
     pop dword
     pop word
     pop byte
+    pop
 
     ret
 

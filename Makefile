@@ -2,20 +2,14 @@ CC=clang
 
 #OPT=-O3
 OPT=-g
-CFLAGS+=-pedantic -Wall  -Wextra -Wformat=2 -Wswitch
+CFLAGS+=-Wall -Werror -Wextra -Wformat=2 -Wswitch
 CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-unused-function
-CFLAGS+=-Wno-objc-protocol-method-implementation
-CFLAGS+=-std=c11
+CFLAGS+=-pedantic-errors -std=c11
 CFLAGS+=-I.
-CFLAGS+=$(shell pkg-config libpng --cflags)
-CFLAGS+=$(shell agar-vg-config --cflags)
 CFLAGS+=$(OPT) -mtune=native -fcommon -pipe
 
 LIBTOOL_FLAGS+=-macosx_version_min 10.7 -undefined warning	\
 	       -dynamic -flat_namespace
-LIBTOOL_FLAGS+=-lag_core -lag_gui -lag_dev
-
-LDFLAGS+=-L. -ledit
 
 CL=client
 CL_SRCS=src/cl.c
@@ -32,6 +26,7 @@ SV_LDFLAGS=$(LDFLAGS)
 LIB=libspacemmo.dylib
 LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c src/lib/cpu/hardware/peripheral/*.c) src/lib/cpu/sasm/sasm.c
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
+LIB_LDFLAGS+=-L. -ledit
 
 CPU=cpu
 CPU_SRCS=src/cpu.c
@@ -40,18 +35,19 @@ CPU_CFLAGS+=-flto $(OPT)
 CPU_LDFLAGS=$(LDFLAGS)
 
 SASM=sasm
+SASM_SRC=src/sasm.c
 SASM_LEX_SRC=src/lib/cpu/sasm/sasm.l
 SASM_LEXER_SRC=src/lib/cpu/sasm/sasm.yy.c
 SASM_YACC_SRC=src/lib/cpu/sasm/sasm.y
 SASM_YACC_PARSER_SRC=src/lib/cpu/sasm/sasm.y.tab.c
 SASM_YACC_PARSER_HDR=$(SASM_YACC_PARSER_SRC:%.c=%.h)
 SASM_YACC_PARSER_OBJ=$(SASM_YACC_PARSER_SRC:%.c=%.o)
-SASM_SRCS=$(SASM_YACC_PARSER_SRC) $(SASM_LEXER_SRC) src/sasm.c
+SASM_SRCS=$(SASM_YACC_PARSER_SRC) $(SASM_LEXER_SRC) $(SASM_SRC)
 SASM_OBJS=$(SASM_SRCS:%.c=%.o)
 SASM_CFLAGS+=-flto $(OPT)
 SASM_LDFLAGS=$(LDFLAGS)
 
-SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(CPU_SRCS) $(SASM_SRCS)
+SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(CPU_SRCS) $(SASM_SRC)
 OBJS=$(SRCS:%.c=%.o)
 DEPS=$(SRCS:%.c=%.d)
 
@@ -79,7 +75,7 @@ $(SASM): $(SASM_OBJS) $(LIB)
 	$(CC) $(SASM_CFLAGS) $(SASM_LDFLAGS) -L. -lspacemmo $(SASM_OBJS) -o $@
 
 $(LIB): $(LIB_OBJS)
-	libtool -dynamic -o $@ $(LIBTOOL_FLAGS) $(LIB_OBJS)
+	libtool -dynamic -o $@ $(LIB_LDFLAGS) $(LIBTOOL_FLAGS) $(LIB_OBJS)
 
 clean:
 	rm -f $(OBJS)
@@ -87,6 +83,7 @@ clean:
 	rm -f $(CL) $(SV) $(CPU) $(SASM) $(LIB)
 	rm -f $(SASM_LEXER_SRC)
 	rm -f $(SASM_YACC_PARSER_HDR) $(SASM_YACC_PARSER_SRC)
+	rm -f $(SASM_OBJS)
 
 analyze:
 	$(CC) $(CFLAGS) --analyze $(SRCS)

@@ -7,9 +7,9 @@
 #include <sys/event.h>
 
 #define CPU_MEMORY_SZ       0x1000000   // 16MB
-#define CPU_STACK           0x0ffa000   // 8KB stack
-#define CPU_RET_STACK       0x0ffc000   // 1024 ret stack depth
-#define CPU_IDT             0x0ffe000   // 1024 interrupts
+#define CPU_STACK           0xffa000    // 8KB stack
+#define CPU_RET_STACK       0xffc000    // 1024 ret stack depth
+#define CPU_IDT             0xffe000    // 1024 interrupts
 
 #define LOG(...) do {                                                       \
     if (cpu->debug)                                                         \
@@ -43,25 +43,25 @@ typedef struct cpu_st {
 } cpu_t;
 
 typedef enum irq_e {
-    IRQ_DBG     =   0x0ffe000,
+    IRQ_DBG     =   0xffe000,
 
-    IRQ_CLK     =   0x0ffe010,
-    IRQ_TTY     =   0x0ffe014,
-    IRQ_KBD     =   0x0ffe018,
-    IRQ_DISK_SET=   0x0ffe01c,
+    IRQ_CLK     =   0xffe010,
+    IRQ_TTY     =   0xffe014,
+    IRQ_KBD     =   0xffe018,
+    IRQ_DISK_SET=   0xffe01c,
 
-    IRQ_DISK_RD =   0x0ffe020,
-    IRQ_DISK_WR =   0x0ffe024,
-    IRQ_P0_IN   =   0x0ffe028,
-    IRQ_P0_OUT  =   0x0ffe02c,
+    IRQ_DISK_RD =   0xffe020,
+    IRQ_DISK_WR =   0xffe024,
+    IRQ_P0_IN   =   0xffe028,
+    IRQ_P0_OUT  =   0xffe02c,
 
-    IRQ_P1_IN   =   0x0ffe030,
-    IRQ_P1_OUT  =   0x0ffe034,
-    IRQ_P2_IN   =   0x0ffe038,
-    IRQ_P2_OUT  =   0x0ffe03c,
+    IRQ_P1_IN   =   0xffe030,
+    IRQ_P1_OUT  =   0xffe034,
+    IRQ_P2_IN   =   0xffe038,
+    IRQ_P2_OUT  =   0xffe03c,
 
-    IRQ_P3_IN   =   0x0ffe040,
-    IRQ_P3_OUT  =   0x0ffe044,
+    IRQ_P3_IN   =   0xffe040,
+    IRQ_P3_OUT  =   0xffe044,
 } irq_t;
 
 typedef struct opcode_st {

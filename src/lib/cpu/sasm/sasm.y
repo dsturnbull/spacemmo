@@ -1,6 +1,7 @@
 %{
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "src/lib/cpu/sasm/sasm.h"
 
@@ -29,14 +30,14 @@ yywrap()
 	char *string;
 }
 
-%token QCOLON QNEWLINE QCOMMENT
+%token QCOLON QNEWLINE QCOMMENT QQUOTE QDQUOTE
 %token QBYTE QWORD QDWORD QQWORD
 %token QDB QDW QDD QDQ QEQU
 %token QNOP QHLT QLOAD QSTORE QADD QSUB QMUL QDIV QAND QOR
 %token QJMP QJE QJZ QJNZ QCALL QRET QDUP QPUSH QPOP QSWAP QINT
 
-%token <number> QNUMBER
-%token <string> QTEXT
+%token <number>	QNUMBER
+%token <string>	QTEXT
 
 %%
 
@@ -55,13 +56,17 @@ stmt:
 	| push_byte	| push_word	| push_dword	| push_qword
 
 	| push_var
-	| push_var_byte	| push_var_word	| push_var_dword| push_var_qword
 
 	| pop
 	| pop_byte	| pop_word	| pop_dword	| pop_qword
 
 	| db	| dw	| dd	| dq	| equ	| equrel
-	| nop	| hlt	| load	| store	| add	| sub	| mul	| div
+	| db_str| db_chr
+
+	| load
+	| load_b	| load_w	| load_d	| load_q
+
+	| nop	| hlt	| store	| add	| sub	| mul	| div
 	| and	| or	| jmp	| je	| jz	| jnz	| call
 	| dup	| swap	| int
 
@@ -110,32 +115,7 @@ push_qword:
 push_var:
 	QPUSH QTEXT QNEWLINE {
 		variable_t *var = find_variable(ysasm, $2);
-		push1(ysasm, PUSH, (uint64_t *)&var->addr, sizeof(uint64_t));
-	};
-
-push_var_byte:
-	QPUSH QBYTE QTEXT QNEWLINE {
-		variable_t *var = find_variable(ysasm, $3);
-		printf("%p\n", var);
-		printf("%s\n", var->name);
-		push1(ysasm, PUSH, (uint8_t *)&var->addr, sizeof(uint8_t));
-	};
-
-push_var_word:
-	QPUSH QWORD QTEXT QNEWLINE {
-		variable_t *var = find_variable(ysasm, $3);
-		push1(ysasm, PUSH, (uint16_t *)&var->addr, sizeof(uint16_t));
-	};
-
-push_var_dword:
-	QPUSH QDWORD QTEXT QNEWLINE {
-		variable_t *var = find_variable(ysasm, $3);
-		push1(ysasm, PUSH, (uint32_t *)&var->addr, sizeof(uint32_t));
-	};
-
-push_var_qword:
-	QPUSH QQWORD QTEXT QNEWLINE {
-		variable_t *var = find_variable(ysasm, $3);
+		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1);
 		push1(ysasm, PUSH, (uint64_t *)&var->addr, sizeof(uint64_t));
 	};
 
@@ -166,36 +146,70 @@ pop_qword:
 
 db:
 	QDB QTEXT QNUMBER QNEWLINE {
-		define_variable(ysasm, $2, $3);
+		define_variable(ysasm, $2, $3, sizeof(uint8_t));
 	};
 
 dw:
 	QDW QTEXT QNUMBER QNEWLINE {
-		define_variable(ysasm, $2, $3);
+		define_variable(ysasm, $2, $3, sizeof(uint16_t));
 	};
 
 dd:
 	QDD QTEXT QNUMBER QNEWLINE {
-		define_variable(ysasm, $2, $3);
+		define_variable(ysasm, $2, $3, sizeof(uint32_t));
 	};
 
 dq:
 	QDQ QTEXT QNUMBER QNEWLINE {
-		define_variable(ysasm, $2, $3);
+		define_variable(ysasm, $2, $3, sizeof(uint64_t));
 	};
 
 equ:
 	QTEXT QEQU QNUMBER QNEWLINE {
-		define_constant(ysasm, $1, $3);
+		//define_constant(ysasm, $1, $3, sizeof(uint8_t));
 	};
 
 equrel:
 	QTEXT QEQU '$' '-' QNUMBER QNEWLINE {
 	};
 
+db_chr:
+	 QDB QTEXT QQUOTE QTEXT QQUOTE {
+		define_variable(ysasm, $2, $4[0], sizeof(uint8_t));
+	 };
+
+db_str:
+	 QDB QTEXT QDQUOTE QTEXT QDQUOTE {
+		printf("2%s=%s\n", $2, $4);
+	 };
+
+load:
+	QLOAD QNEWLINE {
+		push0(ysasm, LOAD, sizeof(uint64_t));
+	};
+
+load_b:
+	QLOAD QBYTE QNEWLINE {
+		push0(ysasm, LOAD, sizeof(uint8_t));
+	};
+
+load_w:
+	QLOAD QWORD QNEWLINE {
+		push0(ysasm, LOAD, sizeof(uint16_t));
+	};
+
+load_d:
+	QLOAD QDWORD QNEWLINE {
+		push0(ysasm, LOAD, sizeof(uint32_t));
+	};
+
+load_q:
+	QLOAD QQWORD QNEWLINE {
+		push0(ysasm, LOAD, sizeof(uint64_t));
+	};
+
 nop:	QNOP	QNEWLINE { push0(ysasm, NOP, 	sizeof(uint8_t)); };
 hlt:	QHLT	QNEWLINE { push0(ysasm, HLT, 	sizeof(uint8_t)); };
-load:	QLOAD	QNEWLINE { push0(ysasm, LOAD, 	sizeof(uint8_t)); };
 store:	QSTORE	QNEWLINE { push0(ysasm, STORE, 	sizeof(uint8_t)); };
 add:	QADD	QNEWLINE { push0(ysasm, ADD, 	sizeof(uint8_t)); };
 sub:	QSUB	QNEWLINE { push0(ysasm, SUB, 	sizeof(uint8_t)); };

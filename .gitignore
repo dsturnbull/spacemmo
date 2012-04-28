@@ -5,5 +5,9 @@
 /test_runner
 /libspacemmo.dylib
 
+src/lib/cpu/sasm/sasm.y.tab.c
+src/lib/cpu/sasm/sasm.y.tab.h
+src/lib/cpu/sasm/sasm.yy.c
+
 *.sys
 *.dbg

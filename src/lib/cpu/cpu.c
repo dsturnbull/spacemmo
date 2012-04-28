@@ -50,7 +50,7 @@ init_cpu()
     cpu->opmap[HLT]     = &handle_hlt;
     cpu->opmap[RET]     = &handle_ret;
     cpu->opmap[CALL]    = &handle_call;
-    //cpu->opmap[LOAD]    = &handle_load;
+    cpu->opmap[LOAD]    = &handle_load;
     //cpu->opmap[STORE]   = &handle_store;
     //cpu->opmap[ADD]     = &handle_add;
     //cpu->opmap[SUB]     = &handle_sub;
@@ -166,11 +166,11 @@ step_cpu(cpu_t *cpu)
     //char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
     //LOG("[\033[36m%-97s\033[0m] ", line);
 
-    LOG("%016lx op:%02x flags:%02x ip: %016lx sp: %016lx rp: %016lx ",
+    LOG("%016lx op:%02x flags:%02x ip: %016lx rp: %016lx sp: %016lx ",
             cpu->ip - cpu->mem, opcode.op, opcode.flags,
             cpu->ip - cpu->mem,
-            cpu->sp - &cpu->mem[CPU_STACK],
-            cpu->rp - &cpu->mem[CPU_RET_STACK]);
+            cpu->rp - &cpu->mem[CPU_RET_STACK],
+            cpu->sp - &cpu->mem[CPU_STACK]);
 
     handle_op(cpu, &opcode);
     cpu->cycles++;
@@ -268,7 +268,7 @@ void
 handle_call(cpu_t *cpu, instruction_t *op)
 {
     uint64_t addr = *(uint64_t *)(cpu->sp - sizeof(uint64_t));
-    LOG("call %016llx -> %016lx\n", cpu->ip - cpu->mem, addr);
+    LOG("call %016lx -> %016llx\n", cpu->ip - cpu->mem, addr);
     uint64_t ret = cpu->ip - cpu->mem + 1;
     cpu->ip = &cpu->mem[addr];
     memcpy(cpu->rp, &ret, sizeof(ret));
@@ -280,7 +280,7 @@ void
 handle_ret(cpu_t *cpu, instruction_t *op)
 {
     uint64_t ret = *((uint64_t *)(cpu->rp - sizeof(uint64_t)));
-    LOG("ret  %016lx -> %016llx\n", cpu->ip - cpu->mem, ret);
+    LOG("ret  %016llx <- %016lx\n", ret, cpu->ip - cpu->mem);
     cpu->ip = &cpu->mem[ret];
     cpu->rp -= sizeof(ret);
 }
@@ -295,6 +295,21 @@ handle_pop(cpu_t *cpu, instruction_t *op)
     cpu->ip++;
 }
 
+void
+handle_load(cpu_t *cpu, instruction_t *op)
+{
+    uint64_t loc = 0, val = 0;
+    memcpy(&loc, cpu->sp - sizeof(uint64_t), sizeof(uint64_t));
+    cpu->sp -= sizeof(uint64_t);
+
+    memcpy(&val, &cpu->mem[loc], op->len);
+    memcpy(cpu->sp, &val, op->len);
+    cpu->sp += op->len;
+
+    LOG("load %016llx from %016llx\n", val, loc);
+    cpu->ip++;
+}
+
     /*
     switch ((op_t)opcode.op) {
         case NOP:
@@ -306,12 +321,6 @@ handle_pop(cpu_t *cpu, instruction_t *op)
             cpu->halted = true;
             LOG("halt\n");
             return;
-
-        case LOAD:
-            LOG("load %08x from %08x\n", *(uint32_t *)&cpu->mem[t], t);
-            memcpy(cpu->sp - 4, &cpu->mem[t], 4);
-            cpu->ip++;
-            break;
 
         case STORE:
             LOG("store %08x at %08x\n", t, v);

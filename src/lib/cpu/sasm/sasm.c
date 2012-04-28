@@ -9,29 +9,35 @@
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/sasm/sasm.h"
 
-static char *orig = NULL;
 extern FILE *yyin;
 
 sasm_t *
 init_sasm()
 {
     sasm_t *sasm = calloc(1, sizeof(*sasm));
+
     sasm->prog_sz = 0x10000;
     sasm->prog = calloc(sasm->prog_sz, sizeof(sasm->prog));
     sasm->ip = sasm->prog;
-    sasm->lineno = -1;
+
     sasm->variables_sz = 1;
     sasm->variables = calloc(sasm->variables_sz, sizeof(variable_t));
     if (sasm->variables == NULL) {
         perror("calloc");
         exit(1);
     }
+
     return sasm;
 }
 
 void
 free_sasm(sasm_t *sasm)
 {
+    free(sasm->prog);
+    for (size_t i = 0; i < sasm->variables_len; i++)
+        if(sasm->variables[i].name)
+            free(sasm->variables[i].name);
+    free(sasm->variables);
     free(sasm);
 }
 
@@ -60,7 +66,6 @@ assemble(sasm_t *sasm, char *src_file)
     define_constant(sasm, "IO_3_OUT",   IRQ_P3_OUT);
 
     char *sys_file = replace_ext(src_file, ".sys");
-    char *dbg_file = replace_ext(src_file, ".dbg");
 
     if ((sasm->src_fp = fopen(src_file, "r")) == NULL) {
         perror("src_fp");
@@ -72,38 +77,31 @@ assemble(sasm_t *sasm, char *src_file)
         exit(1);
     }
 
-    if ((sasm->dbg_fp = fopen(dbg_file, "w")) == NULL) {
-        perror("dbg_fp");
-        exit(1);
-    }
-
     // assemble
     yyin = sasm->src_fp;
     yyparse();
 
-    sasm->prog_len = sasm->ip - sasm->prog;
-
     // write data to end of prog
     write_data(sasm);
+    sasm->prog_len = sasm->ip - sasm->prog;
 
+    // jump to main
     write_prologue(sasm);
 
     fwrite(sasm->prog, sasm->prog_len, 1, sasm->sys_fp);
-
     fclose(sasm->sys_fp);
     free(sys_file);
-
-    fclose(sasm->dbg_fp);
-    free(dbg_file);
 }
 
 void
 push0(sasm_t *sasm, op_t op, size_t len)
 {
-    fprintf(stderr, "push0 %08lx = op:%02x\n", sasm->ip - sasm->prog, op);
     opcode_t opcode;
     opcode.op = op;
     opcode.flags = opflags(len);
+
+    fprintf(stderr, "push0 %016lx = op:%02x\n", sasm->ip - sasm->prog, op);
+
     memcpy(sasm->ip, &opcode, sizeof(uint8_t));
     sasm->ip++;
 }
@@ -115,22 +113,23 @@ push1(sasm_t *sasm, op_t op, void *data, size_t len)
     opcode.op = op;
     opcode.flags = opflags(len);
 
-    fprintf(stderr, "push1 %08lx = op:%02x data:%016llx flags: ",
+    fprintf(stderr, "push1 %016lx = op:%02x data:%016llx\n",
             sasm->ip - sasm->prog, op, *(uint64_t *)data);
-    for (int i = 0; i < 8; i++)
-        fprintf(stderr, "%i", (*(uint32_t *)&opcode & (1 << i)) != 0);
-    fprintf(stderr, " len: %i\n", len);
-
-    //for (int i = 0; i < 8; i++)
-    //    printf("%i ", (*(uint32_t *)&opcode & (1 << i)) != 0);
-    //printf("\n");
 
     memcpy(sasm->ip++, &opcode, sizeof(uint8_t));
     for (size_t i = 0; i < len; i++) {
-        fprintf(stderr, "push1 %08lx = db:%02x\n",
-                sasm->ip - sasm->prog, ((char *)data)[i]);
+        fprintf(stderr, "push1 %016lx = db:%02x\n",
+                sasm->ip - sasm->prog, ((uint8_t *)data)[i]);
         *sasm->ip++ = ((char *)data)[i];
     }
+}
+
+void
+define_variable(sasm_t *sasm, char *name, uint64_t value, size_t len)
+{
+    variable_t *var = find_or_create_variable(sasm, name);
+    var->value = value;
+    var->len = len;
 }
 
 variable_t *
@@ -154,6 +153,38 @@ find_variable(sasm_t *sasm, char *name)
     return NULL;
 }
 
+variable_t *
+find_or_create_variable(sasm_t *sasm, char *name)
+{
+    variable_t *variable;
+    
+    if ((variable = find_variable(sasm, name)) == NULL) {
+        variable = new_variable(sasm);
+        variable->name = strdup(name);
+    }
+
+    return variable;
+}
+
+void
+add_variable_ref(sasm_t *sasm, variable_t *var, uint64_t ref)
+{
+    if (var->refs_sz == var->refs_len) {
+        var->refs_sz *= 2;
+        if (var->refs_sz == 0)
+            var->refs_sz = 1;
+
+        var->refs = realloc(var->refs, var->refs_sz * sizeof(uint8_t *));
+
+        if (var->refs == NULL) {
+            perror("calloc");
+            exit(1);
+        }
+    }
+
+    var->refs[var->refs_len++] = ref;
+}
+
 void
 define_constant(sasm_t *sasm, char *name, uint64_t value)
 {
@@ -171,9 +202,8 @@ define_data(sasm_t *sasm, char *name, char *data)
     variable->data_len = strlen(data) * sizeof(uint64_t);
     variable->data = malloc(variable->data_len);
 
-    for (size_t j = 0; j < strlen(data); j++) {
+    for (size_t j = 0; j < strlen(data); j++)
         variable->data[j] = data[j];
-    }
 }
 
 void
@@ -189,11 +219,6 @@ define_relative(sasm_t *sasm)
     //                strcmp(sasm->labels[i].name, data) == 0)
     //            break;
 
-    //    if (i == MAX_LABELS) {
-    //        fprintf(stderr, "can't find the data label %s\n", data);
-    //        exit(1);
-    //    }
-
     //    // the new label
     //    int j;
     //    for (j = 0; j < MAX_LABELS; j++)
@@ -203,14 +228,6 @@ define_relative(sasm_t *sasm)
     //    sasm->labels[j].name = strdup(name);
     //    sasm->labels[j].addr = sasm->labels[i].data_len / sizeof(uint64_t);
     //}
-}
-
-void
-define_variable(sasm_t *sasm, char *name, uint64_t value)
-{
-    variable_t *variable = new_variable(sasm);
-    variable->name = strdup(name);
-    variable->addr = value;
 }
 
 void
@@ -231,31 +248,31 @@ write_prologue(sasm_t *sasm)
 }
 
 void
-write_debug_line(sasm_t *sasm)
+write_data(sasm_t *sasm)
 {
-    uint64_t t = sasm->ip - sasm->prog;
-    if (orig) {
-        fwrite(&t, sizeof(t), 1, sasm->dbg_fp);
-        t = strlen(orig);
-        fwrite(&t, sizeof(t), 1, sasm->dbg_fp);
-        fwrite(orig, t, 1, sasm->dbg_fp);
-    }
-}
+    for (size_t i = 0; i < sasm->variables_len; i++) {
+        variable_t *var = &sasm->variables[i];
 
-void
-write_data()
-{
-    //sasm->data = sasm->prog + sasm->prog_len;
-    //for (size_t i = 0; i < MAX_LABELS; i++) {
-    //    if (sasm->labels[i].data_len > 0) {
-    //        if (sasm->labels[i].data)
-    //            memcpy(sasm->data, sasm->labels[i].data,
-    //                    sasm->labels[i].data_len);
-    //        sasm->labels[i].addr = sasm->data - sasm->prog;
-    //        sasm->data += sasm->labels[i].data_len;
-    //        sasm->prog_len += sasm->labels[i].data_len;
-    //    }
-    //}
+        if (var->len > 0) {
+            //printf("writing %016llx at %016lx for %s\n",
+            //        var->value, sasm->ip - sasm->prog,
+            //        var->name);
+
+            memcpy(sasm->ip, &var->value, var->len);
+            var->addr = sasm->ip - sasm->prog;
+
+            for (size_t j = 0; j < var->refs_len; j++) {
+                //printf("replacing ref at %016llx with %016llx\n",
+                //       var->refs[j],
+                //       (uint64_t)(sasm->ip - sasm->prog));
+
+                memcpy(sasm->prog + var->refs[j], &var->addr,
+                        sizeof(uint64_t));
+            }
+
+            sasm->ip += var->len;
+        }
+    }
 }
 
 uint8_t
@@ -281,10 +298,9 @@ opflags(size_t sz)
 void
 print_prog(sasm_t *sasm)
 {
-    sasm->prog_len = sasm->ip - sasm->prog;
     uint8_t *p = sasm->prog;
     for (int i = 0; i < sasm->prog_len; i += 16) {
-        fprintf(stderr, "%08x: ", i);
+        fprintf(stderr, "%016x: ", i);
         for (int j = 0; j < 16; j++) {
             fprintf(stderr, "%02x ", *(p++));
         }

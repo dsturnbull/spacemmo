@@ -45,6 +45,8 @@ int			return QINT;
 :			return QCOLON;
 \n                      return QNEWLINE;
 ;.*			return QCOMMENT;
+'			return QQUOTE;
+\"			return QDQUOTE;
 [ \t]+                  /* ignore whitespace */;
 %%
 
