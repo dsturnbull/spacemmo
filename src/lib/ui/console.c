@@ -10,7 +10,7 @@
 #include "src/lib/cluster.h"
 #include "src/lib/system.h"
 #include "src/lib/entity.h"
-#include "src/lib/cpu/sasm.h"
+#include "src/lib/cpu/sasm/sasm.h"
 #include "src/lib/cpu/cpu.h"
 
 console_t *

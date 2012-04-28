@@ -23,6 +23,7 @@ handler(port_t *port, char c)
     radar_t *radar = (radar_t *)port->hw;
     struct radar_status status;
     struct radar_scan scan;
+    __block int i = 0;
 
     switch ((radar_command_t)c) {
         case RADAR_STATUS:
@@ -31,12 +32,11 @@ handler(port_t *port, char c)
             break;
 
         case RADAR_SCAN:
-            printf("scan\n");
             foreach_entity(radar->system, ^(entity_t *e) {
-                printf("%u\n", e->id);
+                i++;
             });
-            uint32_t num = 0;
-            write_client(port, &num, sizeof(num));
+            scan.count = i;
+            write_client(port, &scan, sizeof(scan));
             break;
     }
 }

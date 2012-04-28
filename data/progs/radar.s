@@ -7,6 +7,11 @@ radar_status_ok db "radar ok"
 radar_status_ok_len equ $-radar_status_ok
 radar_status_damaged db "radar damaged"
 radar_status_damaged_len equ $-radar_status_damaged
+radar_entities db "entities"
+radar_entities_len equ $-radar_entities
+
+dw scan_results_p
+dw scan_results 4
 
 _main:
     ; register status handler
@@ -34,11 +39,6 @@ _radar_status_isr:
     ret
 
 _radar_status_ok:
-    ; register kbd handler
-    push _kbd_isr
-    push KBD
-    int
-
     ; print that we're ok
     push radar_status_ok
     push radar_status_ok_len
@@ -47,6 +47,11 @@ _radar_status_ok:
 
     push 0xa
     push TTY
+    int
+
+    ; register kbd handler
+    push _kbd_isr
+    push KBD
     int
 
     ; register scan handler
@@ -60,6 +65,11 @@ _kbd_isr:
     ; ignore key
     pop
 
+    ; reset scan_results pointer
+    push scan_results_p
+    push 0x0
+    store
+
     ; send a scan request
     push RADAR_SCAN
     push IO_1_OUT
@@ -70,9 +80,49 @@ _kbd_isr:
 ; number of entities
 ; entities
 _radar_scan_isr:
-    push 0xcafebabe
-    pop
-    pop
+    ; store the 4 bytes of the number
+    dup
+    push scan_results
+    push scan_results_p
+    load
+    add
+    swap
+    store
+
+    ; increment pointer
+    push scan_results_p
+    dup
+    load
+    push 0x4
+    add
+    store
+
+    push scan_results_p
+    load
+    push 0x10
+    push _radar_scan_print_num
+    je
+
+    ret
+
+_radar_scan_print_num:
+    push scan_results
+    push _tty_print_number
+    call
+
+    push 0x20
+    push TTY
+    int
+
+    push radar_entities
+    push radar_entities_len
+    push _tty_print_string
+    call
+
+    push 0xa
+    push TTY
+    int
+
     ret
 
 _radar_status_print_damaged:

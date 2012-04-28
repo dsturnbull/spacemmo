@@ -1,13 +1,14 @@
 #include "src/lib/spacemmo.h"
-#include "src/lib/cpu/sasm.h"
+#include "src/lib/cpu/sasm/sasm.h"
+
+extern sasm_t *ysasm;
 
 int
 main(int argc, char *argv[])
 {
-    sasm_t *sasm = init_sasm();
-    assemble(sasm, argv[1]);
-    //print_prog(sasm);
-    free_sasm(sasm);
+    ysasm = init_sasm();
+    assemble(ysasm, argv[1]);
+    print_prog(ysasm);
     return 0;
 }
 

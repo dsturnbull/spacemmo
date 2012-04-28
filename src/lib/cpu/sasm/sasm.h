@@ -1,0 +1,60 @@
+#ifndef __src_lib_cpu_sasm_h
+#define __src_lib_cpu_sasm_h
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <sys/stat.h>
+#include <stdint.h>
+#include <sys/types.h>
+
+#include "src/lib/cpu/cpu.h"
+
+typedef struct opcode_st opcode_t;
+
+typedef struct variable_st {
+    char *name;
+    uint64_t addr;
+    uint64_t *data;
+    size_t data_len;
+} variable_t;
+
+typedef struct sasm_st {
+    variable_t *variables;
+    size_t variables_len;
+    size_t variables_sz;
+    int prog_sz;
+    int prog_len;
+    uint8_t *prog;
+    uint8_t *ip;
+    uint8_t *data;
+
+    int lineno;
+    FILE *src_fp, *sys_fp, *dbg_fp;
+} sasm_t;
+
+sasm_t * init_sasm();
+void free_sasm(sasm_t *);
+void assemble(sasm_t *, char *);
+void push0(sasm_t *, op_t, size_t);
+void push1(sasm_t *, op_t, void *, size_t);
+variable_t * new_variable(sasm_t *);
+variable_t * find_variable(sasm_t *, char *);
+void define_constant(sasm_t *, char *, uint64_t);
+void define_data(sasm_t *, char *, char *);
+void define_variable(sasm_t *, char *, uint64_t);
+void define_label(sasm_t *, char *);
+void write_prologue(sasm_t *);
+void write_debug_line(sasm_t *);
+void write_data(sasm_t *);
+uint8_t opflags(size_t);
+
+void print_prog(sasm_t *);
+
+int yyparse();
+int yylex();
+
+#endif
+

@@ -62,7 +62,7 @@ init_client_kqueue(client_t *client)
 
     // register cpu update timer
     memset(&client->ke, 0, sizeof(struct kevent));
-    EV_SET(&client->ke, 1, EVFILT_TIMER, EV_ADD, NOTE_NSECONDS, 1, NULL);
+    EV_SET(&client->ke, 1, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000, NULL);
 
     if (kevent(client->kq, &client->ke, 1, NULL, 0, NULL) == -1)
         err(EX_UNAVAILABLE, "set cpu update kevent");

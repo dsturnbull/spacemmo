@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "src/lib/cpu/hardware/port.h"
 
@@ -45,7 +46,10 @@ write_port(port_t *port, char c)
 void
 write_client(port_t *port, void *data, size_t len)
 {
-    printf("writing %lu bytes\n", len);
+    printf("port%i ->", port->n);
+    for (size_t i = 0; i < len; i++)
+        printf(" %02x", ((uint8_t *)data)[i]);
+    printf("\n");
     write(port->w, data, len);
 }
 

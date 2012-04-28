@@ -22,7 +22,7 @@ struct radar_status {
 };
 
 struct radar_scan {
-    entity_t **entities;
+    uint32_t count;
 };
 
 radar_t * init_radar(port_t *, system_t *);

@@ -18,7 +18,7 @@ init_cpu()
 
     cpu->ip = cpu->mem;
     cpu->sp = &cpu->mem[CPU_STACK];
-    cpu->bp = &cpu->mem[CPU_RET_STACK];
+    cpu->rp = &cpu->mem[CPU_RET_STACK];
 
     // init kqueue
     if ((cpu->kq = kqueue()) == -1) {
@@ -45,7 +45,30 @@ init_cpu()
 
     cpu->halted = true;
 
-    wait_tty_slave(cpu->tty);
+    cpu->opmap = malloc(32 * sizeof(uintptr_t));
+    cpu->opmap[NOP]     = &handle_nop;
+    cpu->opmap[HLT]     = &handle_hlt;
+    cpu->opmap[RET]     = &handle_ret;
+    cpu->opmap[CALL]    = &handle_call;
+    //cpu->opmap[LOAD]    = &handle_load;
+    //cpu->opmap[STORE]   = &handle_store;
+    //cpu->opmap[ADD]     = &handle_add;
+    //cpu->opmap[SUB]     = &handle_sub;
+    //cpu->opmap[MUL]     = &handle_mul;
+    //cpu->opmap[DIV]     = &handle_div;
+    //cpu->opmap[AND]     = &handle_and;
+    //cpu->opmap[OR]      = &handle_or;
+    //cpu->opmap[JMP]     = &handle_jmp;
+    //cpu->opmap[JE]      = &handle_je;
+    //cpu->opmap[JZ]      = &handle_jz;
+    //cpu->opmap[JNZ]     = &handle_jnz;
+    //cpu->opmap[DUP]     = &handle_dup;
+    cpu->opmap[PUSH]    = &handle_push;
+    cpu->opmap[POP]     = &handle_pop;
+    //cpu->opmap[SWAP]    = &handle_swap;
+    //cpu->opmap[INT]     = &handle_int;
+
+    //wait_tty_slave(cpu->tty);
 
     return cpu;
 }
@@ -83,22 +106,22 @@ load_cpu(cpu_t *cpu, char *sys_file)
     free(sys_buf);
 
     // load source lookup
-    if ((dbg_fp = fopen(dbg_file, "r")) == NULL) {
-        perror("dbg_file");
-        exit(1);
-    }
+    //if ((dbg_fp = fopen(dbg_file, "r")) == NULL) {
+    //    perror("dbg_file");
+    //    exit(1);
+    //}
 
-    cpu->src = calloc(st.st_size, sizeof(char *));
-    while (true) {
-        int pos, len;
-        if (fread(&pos, sizeof(pos), 1, dbg_fp) == 0)
-            break;
-        fread(&len, sizeof(len), 1, dbg_fp);
+    //cpu->src = calloc(st.st_size, sizeof(char *));
+    //while (true) {
+    //    int pos, len;
+    //    if (fread(&pos, sizeof(pos), 1, dbg_fp) == 0)
+    //        break;
+    //    fread(&len, sizeof(len), 1, dbg_fp);
 
-        cpu->src[pos] = malloc(len + 1);
-        fread(cpu->src[pos], len, 1, dbg_fp);
-        cpu->src[pos][len] = '\0';
-    }
+    //    cpu->src[pos] = malloc(len + 1);
+    //    fread(cpu->src[pos], len, 1, dbg_fp);
+    //    cpu->src[pos][len] = '\0';
+    //}
 }
 
 void
@@ -116,7 +139,7 @@ run_cpu(cpu_t *cpu)
 
             for (int i = 0; i < 4; i++) {
                 port_t *port = cpu->port0 + i;
-                if (cpu->mem[IRQ_P0_IN + i * 8]) {
+                if (*(uint32_t *)(&cpu->mem[IRQ_P0_IN + i * 8])) {
                     if (cpu->ke.ident == (uintptr_t)port->r) {
                         LOG("(w) %li bytes on port %i\n", cpu->ke.data, i);
                         handle_port_read(cpu, port);
@@ -136,20 +159,144 @@ run_cpu(cpu_t *cpu)
 void
 step_cpu(cpu_t *cpu)
 {
-    uint32_t t, v, u;
     irq_t irq;
-    op_t op = *(cpu->ip);
+    opcode_t opcode = *(opcode_t *)cpu->ip;
     prev = cpu->ip;
 
-    LOG("%04lx ", cpu->ip - cpu->mem);
+    //char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
+    //LOG("[\033[36m%-97s\033[0m] ", line);
 
-    t = *((uint32_t *)(cpu->sp - 4));
-    v = *((uint32_t *)(cpu->sp - 8));
+    LOG("%016lx op:%02x flags:%02x ip: %016lx sp: %016lx rp: %016lx ",
+            cpu->ip - cpu->mem, opcode.op, opcode.flags,
+            cpu->ip - cpu->mem,
+            cpu->sp - &cpu->mem[CPU_STACK],
+            cpu->rp - &cpu->mem[CPU_RET_STACK]);
 
-    char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
-    LOG("[\033[36m%-97s\033[0m] ", line);
+    handle_op(cpu, &opcode);
+    cpu->cycles++;
+}
 
-    switch (op) {
+void
+reset_cpu(cpu_t *cpu)
+{
+}
+
+void
+print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len, int c)
+{
+    for (size_t i = 0; i < len; i++) {
+        if (i % 32 == 0) {
+            if (i)
+                LOG("\n");
+            LOG("%04lx: ", data - cpu->mem + i);
+        }
+
+        if (p == cpu->ip) {
+            if (&data[i] == prev) {
+                LOG("\033[36m");
+            } else if (&data[i] == cpu->ip) {
+                LOG("\033[%im", c);
+            }
+        } else if (&data[i] - p == -4) {
+            LOG("\033[%im", c);
+        }
+
+        LOG(" %02x", data[i]);
+
+        if (p == cpu->ip) {
+            if (&data[i] == prev) {
+                LOG("\033[0m");
+            } else if (&data[i] == cpu->ip) {
+                LOG("\033[0m");
+            }
+        } else if (&data[i] - p == -1) {
+            LOG("\033[0m");
+        }
+    }
+
+    LOG("\n");
+}
+
+void
+handle_op(cpu_t *cpu, opcode_t *opcode)
+{
+    LOG("(%02x ", *(uint8_t *)opcode);
+    for (int i = 0; i < 8; i++)
+        LOG("%i", (*(uint8_t *)opcode & (1 << i)) != 0);
+    LOG(") ");
+
+    instruction_t instruction;
+    memcpy(&instruction, opcode, sizeof(*opcode));
+    instruction.len = 1 << opcode->flags;
+
+    LOG("len: %lu ", instruction.len);
+
+    void (*op)(cpu_t *, instruction_t *) = cpu->opmap[opcode->op];
+    if (op)
+        op(cpu, &instruction);
+    else
+        exit(1);
+}
+
+void
+handle_nop(cpu_t *cpu, instruction_t *op)
+{
+    cpu->ip++;
+    LOG("nop\n");
+}
+
+void
+handle_hlt(cpu_t *cpu, instruction_t *op)
+{
+    cpu->halted = true;
+    LOG("halt\n");
+}
+
+void
+handle_push(cpu_t *cpu, instruction_t *op)
+{
+    uint64_t arg = 0;
+    memcpy(&arg, cpu->ip + 1, op->len);
+    LOG("push %016llx\n", arg);
+    memcpy(cpu->sp, cpu->ip + 1, op->len);
+    cpu->sp += op->len;
+    cpu->ip += op->len;
+    cpu->ip++;
+}
+
+void
+handle_call(cpu_t *cpu, instruction_t *op)
+{
+    uint64_t addr = *(uint64_t *)(cpu->sp - sizeof(uint64_t));
+    LOG("call %016llx -> %016lx\n", cpu->ip - cpu->mem, addr);
+    uint64_t ret = cpu->ip - cpu->mem + 1;
+    cpu->ip = &cpu->mem[addr];
+    memcpy(cpu->rp, &ret, sizeof(ret));
+    cpu->rp += sizeof(uint64_t);
+    cpu->sp -= sizeof(uint64_t);
+}
+
+void
+handle_ret(cpu_t *cpu, instruction_t *op)
+{
+    uint64_t ret = *((uint64_t *)(cpu->rp - sizeof(uint64_t)));
+    LOG("ret  %016lx -> %016llx\n", cpu->ip - cpu->mem, ret);
+    cpu->ip = &cpu->mem[ret];
+    cpu->rp -= sizeof(ret);
+}
+
+void
+handle_pop(cpu_t *cpu, instruction_t *op)
+{
+    uint64_t arg = 0;
+    memcpy(&arg, cpu->sp - op->len, op->len);
+    LOG("pop  %016llx\n", arg);
+    cpu->sp -= op->len;
+    cpu->ip++;
+}
+
+    /*
+    switch ((op_t)opcode.op) {
         case NOP:
             cpu->ip++;
             LOG("nop\n");
@@ -265,41 +412,10 @@ step_cpu(cpu_t *cpu)
             cpu->sp -= 8;
             break;
 
-        case CALL:
-            LOG("call %08x from %08lx\n", t, cpu->ip - cpu->mem);
-            u = cpu->ip - cpu->mem + 1;
-            cpu->ip = &cpu->mem[t];
-            memcpy(cpu->bp, &u, 4);
-            cpu->bp += 4;
-            cpu->sp -= 4;
-            break;
-
-        case RET:
-            u = *((uint32_t *)(cpu->bp - 4));
-            LOG("ret from %08lx to %08x\n", cpu->ip - cpu->mem, u);
-            cpu->ip = &cpu->mem[u];
-            cpu->bp -= 4;
-            break;
-
         case DUP:
             LOG("dup %08x\n", t);
             memcpy(cpu->sp, cpu->sp - 4, 4);
             cpu->sp += 4;
-            cpu->ip++;
-            break;
-
-        case PUSH:
-            u = *((uint32_t *)(cpu->ip + 1));
-            LOG("push %08x\n", u);
-            memcpy(cpu->sp, cpu->ip + 1, 4);
-            cpu->sp += 4;
-            cpu->ip += 4;
-            cpu->ip++;
-            break;
-
-        case POP:
-            LOG("pop %08x\n", t);
-            cpu->sp -= 4;
             cpu->ip++;
             break;
 
@@ -335,7 +451,7 @@ step_cpu(cpu_t *cpu)
                     break;
 
                 case IRQ_TTY:
-                    LOG("tty out %08x\n", t);
+                    LOG("tty -> %02x\n", t);
                     write_tty(cpu->tty, t);
                     cpu->sp -= 4;
                     break;
@@ -363,8 +479,8 @@ step_cpu(cpu_t *cpu)
                 case IRQ_P1_IN:
                 case IRQ_P2_IN:
                 case IRQ_P3_IN:
-                    LOG("port %i @ %08x\n", (irq - IRQ_P0_IN) / 8, t);
-                    set_port_isr(cpu,        (irq - IRQ_P0_IN) / 8, t);
+                    LOG("port%i @ %08x\n", (irq - IRQ_P0_IN) / 8, t);
+                    set_port_isr(cpu,      (irq - IRQ_P0_IN) / 8, t);
                     cpu->sp -= 4;
                     break;
 
@@ -372,7 +488,7 @@ step_cpu(cpu_t *cpu)
                 case IRQ_P1_OUT:
                 case IRQ_P2_OUT:
                 case IRQ_P3_OUT:
-                    LOG("port %i < %02x\n", (irq - IRQ_P0_OUT) / 8, t);
+                    LOG("port%i <- %02x\n", (irq - IRQ_P0_OUT) / 8, t);
                     write_port(cpu->port0 + (irq - IRQ_P0_OUT) / 8, t);
                     cpu->sp -= 4;
                     break;
@@ -380,94 +496,58 @@ step_cpu(cpu_t *cpu)
 
             cpu->ip++;
             break;
+
+        default:
+            LOG("unhandled\n");
+            exit(1);
     }
 
     cpu->cycles++;
 
     //print_region(cpu, cpu->ip, cpu->mem, 0x80, 34);
     //print_region(cpu, cpu->sp, &cpu->mem[CPU_STACK], 0x80, 31);
-    //print_region(cpu, cpu->bp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
-    //print_region(cpu, cpu->bp, &cpu->mem[CPU_IDT], 0x80, 32);
+    //print_region(cpu, cpu->rp, &cpu->mem[CPU_RET_STACK], 0x80, 32);
+    //print_region(cpu, cpu->rp, &cpu->mem[CPU_IDT], 0x80, 32);
 }
-
-void
-reset_cpu(cpu_t *cpu)
-{
-}
-
-void
-print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len, int c)
-{
-    for (size_t i = 0; i < len; i++) {
-        if (i % 32 == 0) {
-            if (i)
-                LOG("\n");
-            LOG("%04lx: ", data - cpu->mem + i);
-        }
-
-        if (p == cpu->ip) {
-            if (&data[i] == prev) {
-                LOG("\033[36m");
-            } else if (&data[i] == cpu->ip) {
-                LOG("\033[%im", c);
-            }
-        } else if (&data[i] - p == -4) {
-            LOG("\033[%im", c);
-        }
-
-        LOG(" %02x", data[i]);
-
-        if (p == cpu->ip) {
-            if (&data[i] == prev) {
-                LOG("\033[0m");
-            } else if (&data[i] == cpu->ip) {
-                LOG("\033[0m");
-            }
-        } else if (&data[i] - p == -1) {
-            LOG("\033[0m");
-        }
-    }
-
-    LOG("\n");
-}
+*/
 
 void
 handle_irq(cpu_t *cpu, uint8_t *isr)
 {
-    uint8_t *ret = cpu->bp;
+    uint8_t *ret = cpu->rp;
     uint32_t addr = cpu->ip - cpu->mem;
-    memcpy(cpu->bp, &addr, 4);
-    cpu->bp += 4;
+    memcpy(cpu->rp, &addr, 4);
+    cpu->rp += 4;
     cpu->ip = isr;
 
     // faffery - go backwards in order to find the label that the
     // irq handler is in
-    int c = 0;
-    char *prev = cpu->src[(uint32_t)(cpu->ip - cpu->mem) - 1];
-    char *curr = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
-    while (true) {
-        if (cpu->src[c] == prev) {
-            while (true) {
-                if (cpu->src[c] != prev && cpu->src[c] != curr &&
-                    strlen(cpu->src[c]) > 0) {
-                    LOG("%04lx ", cpu->ip - cpu->mem);
-                    LOG("[\033[36m%-97s\033[0m]\n", cpu->src[c]);
-                }
-                if (cpu->src[c++] == curr)
-                    break;
-            }
-            break;
-        }
-        c++;
-    }
+    //int c = 0;
+    //char *prev = cpu->src[(uint32_t)(cpu->ip - cpu->mem) - 1];
+    //char *curr = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
+    //while (true) {
+    //    if (cpu->src[c] == prev) {
+    //        while (true) {
+    //            if (cpu->src[c] != prev && cpu->src[c] != curr &&
+    //                strlen(cpu->src[c]) > 0) {
+    //                LOG("%04lx ", cpu->ip - cpu->mem);
+    //                LOG("[\033[36m%-97s\033[0m]\n", cpu->src[c]);
+    //            }
+    //            if (cpu->src[c++] == curr)
+    //                break;
+    //        }
+    //        break;
+    //    }
+    //    c++;
+    //}
 
     uint8_t *old_ip;
-    while (cpu->bp != ret) {
+    while (cpu->rp != ret) {
         old_ip = cpu->ip;
         step_cpu(cpu);
     }
 
-    LOG("\n");
+    //LOG("\n");
 }
 
 void
@@ -517,7 +597,7 @@ handle_kbd(cpu_t *cpu)
         memset(cpu->sp, 0, 4);
         *(cpu->sp) = c;
         cpu->sp += 4;
-        LOG("kbd char: %02x, jumping to %08x\n",
+        LOG("tty <- %02x, jumping to %08x\n",
                 c, *(uint32_t *)(&cpu->mem[IRQ_KBD]));
         handle_irq(cpu, &cpu->mem[*(uint32_t *)(&cpu->mem[IRQ_KBD])]);
     }
@@ -559,7 +639,7 @@ handle_port_read(cpu_t *cpu, port_t *port)
         *(cpu->sp) = c;
         cpu->sp += 4;
         uint32_t ptr = *(uint32_t *)(&cpu->mem[IRQ_P0_IN + port->n * 8]);
-        LOG("port char: %02x, jumping to %08x\n", c, ptr);
+        LOG("port%i -> %02x, jumping to %08x\n", port->n, c, ptr);
         handle_irq(cpu, &cpu->mem[ptr]);
     }
 }
