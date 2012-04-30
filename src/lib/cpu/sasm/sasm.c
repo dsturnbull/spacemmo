@@ -47,22 +47,17 @@ assemble(sasm_t *sasm, char *src_file)
     // make room for jumping to _main
     sasm->ip += 11;
 
-    define_constant(sasm, "DBG",        IRQ_DBG);
     define_constant(sasm, "CLK",        IRQ_CLK);
     define_constant(sasm, "KBD",        IRQ_KBD);
     define_constant(sasm, "TTY",        IRQ_TTY);
 
-    define_constant(sasm, "DISK_SET",   IRQ_DISK_SET);
-    define_constant(sasm, "DISK_RD",    IRQ_DISK_RD);
-    define_constant(sasm, "DISK_WR",    IRQ_DISK_WR);
-
-    define_constant(sasm, "IO_0_IN",    IRQ_P0_IN);
+    define_constant(sasm, "IO_0",       IRQ_P0);
     define_constant(sasm, "IO_0_OUT",   IRQ_P0_OUT);
-    define_constant(sasm, "IO_1_IN",    IRQ_P1_IN);
+    define_constant(sasm, "IO_1",       IRQ_P1);
     define_constant(sasm, "IO_1_OUT",   IRQ_P1_OUT);
-    define_constant(sasm, "IO_2_IN",    IRQ_P2_IN);
+    define_constant(sasm, "IO_2",       IRQ_P2);
     define_constant(sasm, "IO_2_OUT",   IRQ_P2_OUT);
-    define_constant(sasm, "IO_3_IN",    IRQ_P3_IN);
+    define_constant(sasm, "IO_3",       IRQ_P3);
     define_constant(sasm, "IO_3_OUT",   IRQ_P3_OUT);
 
     char *sys_file = replace_ext(src_file, ".sys");

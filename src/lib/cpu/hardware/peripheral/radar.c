@@ -18,7 +18,7 @@ init_radar(port_t *port, system_t *system)
 }
 
 void
-handler(port_t *port, char c)
+handler(port_t *port, uint64_t c)
 {
     radar_t *radar = (radar_t *)port->hw;
     struct radar_status status;

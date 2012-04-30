@@ -38,30 +38,22 @@ typedef struct cpu_st {
     void (**opmap)(cpu_t *, instruction_t *);
 
     tty_t *tty;
-    disk_t *disk;
     port_t *port0, *port1, *port2, *port3;
 } cpu_t;
 
 typedef enum irq_e {
-    IRQ_DBG     =   0xffe000,
+    IRQ_CLK     =   0xffe000,
+    IRQ_TTY     =   0xffe004,
+    IRQ_KBD     =   0xffe008,
 
-    IRQ_CLK     =   0xffe010,
-    IRQ_TTY     =   0xffe014,
-    IRQ_KBD     =   0xffe018,
-    IRQ_DISK_SET=   0xffe01c,
-
-    IRQ_DISK_RD =   0xffe020,
-    IRQ_DISK_WR =   0xffe024,
-    IRQ_P0_IN   =   0xffe028,
-    IRQ_P0_OUT  =   0xffe02c,
-
-    IRQ_P1_IN   =   0xffe030,
-    IRQ_P1_OUT  =   0xffe034,
-    IRQ_P2_IN   =   0xffe038,
-    IRQ_P2_OUT  =   0xffe03c,
-
-    IRQ_P3_IN   =   0xffe040,
-    IRQ_P3_OUT  =   0xffe044,
+    IRQ_P0      =   0xffe100,
+    IRQ_P0_OUT  =   0xffe200,
+    IRQ_P1      =   0xffe300,
+    IRQ_P1_OUT  =   0xffe400,
+    IRQ_P2      =   0xffe500,
+    IRQ_P2_OUT  =   0xffe600,
+    IRQ_P3      =   0xffe700,
+    IRQ_P3_OUT  =   0xffe800,
 } irq_t;
 
 typedef struct opcode_st {
@@ -140,7 +132,8 @@ void set_timer_isr(cpu_t *, uint64_t, uint64_t);
 void handle_timer(cpu_t *);
 void set_kbd_isr(cpu_t *, uint64_t);
 void handle_kbd(cpu_t *);
-void set_port_isr(cpu_t *, int, uint64_t);
+port_t * find_port(cpu_t *, irq_t);
+void set_port_isr(cpu_t *, port_t *, uint64_t);
 void handle_port_read(cpu_t *, port_t *);
 
 #endif

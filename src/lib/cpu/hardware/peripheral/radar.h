@@ -27,7 +27,7 @@ struct radar_scan {
 
 radar_t * init_radar(port_t *, system_t *);
 void free_radar(radar_t *);
-void handler(port_t *, char);
+void handler(port_t *, uint64_t);
 
 #endif
 

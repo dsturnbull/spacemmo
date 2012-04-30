@@ -51,7 +51,8 @@ stmt:
 	  comment
 	| lbl_def
 	| data | data_str | data_chr
-	| push | pusht | pushv
+	| equ
+	| push | pusht | pushv | pushtv
 	| pop  | popt
 	| dup  | dupt
 	| swap | swapt
@@ -85,14 +86,19 @@ data:
 	};
 
 data_str:
-	 QDTYPE QTEXT QDQUOTE QTEXT QDQUOTE QNEWLINE {
+	QDTYPE QTEXT QDQUOTE QTEXT QDQUOTE QNEWLINE {
 		define_data(ysasm, $2, $4);
-	 };
+	};
 
 data_chr:
-	 QDTYPE QTEXT QQUOTE QTEXT QQUOTE QNEWLINE {
+	QDTYPE QTEXT QQUOTE QTEXT QQUOTE QNEWLINE {
 		define_variable(ysasm, $2, $4[0], sizeof(uint8_t));
-	 };
+	};
+
+equ:
+	QTEXT QEQU QNUMBER QNEWLINE {
+		define_constant(ysasm, $1, $3);
+	};
 
 push:
 	QPUSH QNUMBER QNEWLINE {
@@ -109,6 +115,12 @@ pushv:
 		variable_t *var = find_or_create_variable(ysasm, $2);
 		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1);
 		push1(ysasm, PUSH, &var->addr, 8);
+	};
+
+pushtv:
+	QPUSH QSTYPE QTEXT QNEWLINE {
+		variable_t *var = find_or_create_variable(ysasm, $3);
+		push1(ysasm, PUSH, &var->addr, $2);
 	};
 
 pop:
@@ -272,14 +284,7 @@ int:	QINT	QNEWLINE { push0(ysasm, INT, 	1); };
 %%
 
 /*
-equ:
-	QTEXT QEQU QNUMBER QNEWLINE {
-		//define_constant(ysasm, $1, $3, sizeof(uint8_t));
-	};
-
 equrel:
 	QTEXT QEQU '$' '-' QNUMBER QNEWLINE {
 	};
-
-swap:	QSWAP	QNEWLINE { push0(ysasm, SWAP, 	sizeof(uint8_t)); };
 */

@@ -6,7 +6,6 @@
 #include "src/lib/spacemmo.h"
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/hardware/tty.h"
-#include "src/lib/cpu/hardware/disk.h"
 #include "src/lib/cpu/hardware/port.h"
 
 uint8_t *prev;
@@ -37,7 +36,6 @@ init_cpu()
 
     cpu->log = stdout;
     cpu->tty = init_tty();
-    cpu->disk = init_disk("/tmp/disk");
     cpu->port0 = init_port(0);
     cpu->port1 = init_port(1);
     cpu->port2 = init_port(2);
@@ -140,9 +138,8 @@ run_cpu(cpu_t *cpu)
 
             for (int i = 0; i < 4; i++) {
                 port_t *port = cpu->port0 + i;
-                if (*(uint32_t *)(&cpu->mem[IRQ_P0_IN + i * 8])) {
+                if (*(uint64_t *)(&cpu->mem[IRQ_P0 + i * 0x100])) {
                     if (cpu->ke.ident == (uintptr_t)port->r) {
-                        LOG("(w) %li bytes on port %i\n", cpu->ke.data, i);
                         handle_port_read(cpu, port);
                     }
                 }
@@ -529,28 +526,36 @@ void
 handle_int(cpu_t *cpu, instruction_t *op)
 {
     irq_t irq;
-    uint64_t isr;
-    uint8_t c;
+    uint64_t isr = 0;
+    uint8_t c = 0;
+    uint16_t dt = 0;
+    port_t *port = NULL;
+    size_t len = 0;
+    uint8_t *data = NULL;
 
     switch (op->op) {
         case INT:
-            irq = *((uint64_t *)(cpu->sp - 8));
-            isr = *((uint64_t *)(cpu->sp - 16));
-            cpu->sp -= 16;
+            cpu->sp -= 8;
+            irq = *((uint64_t *)(cpu->sp));
 
             switch (irq) {
-                /*
-                case IRQ_DBG:
-                    LOG("debug %llu\n", t);
-                    cpu->debug = t == 1;
-                    break;
-                */
-
                 case IRQ_CLK:
-                    LOG("clk  -> %016llx (%04xms)\n",
-                            isr, *(uint16_t *)(cpu->sp - 2));
-                    set_timer_isr(cpu, isr, *(uint16_t *)(cpu->sp - 2));
+                case IRQ_KBD:
+                case IRQ_P0:
+                    cpu->sp -= 8;
+                    isr = *((uint64_t *)(cpu->sp));
+                    break;
+
+                default:
+                    break;
+            }
+
+            switch (irq) {
+                case IRQ_CLK:
                     cpu->sp -= 2;
+                    dt = *((uint16_t *)(cpu->sp));
+                    LOG("clk  -> %016llx (%04xms)\n", isr, dt);
+                    set_timer_isr(cpu, isr, dt);
                     break;
 
                 case IRQ_KBD:
@@ -559,58 +564,26 @@ handle_int(cpu_t *cpu, instruction_t *op)
                     break;
 
                 case IRQ_TTY:
-                    // we don't have an isr
-                    cpu->sp += 8;
+                    cpu->sp--;
+                    c = *(uint8_t *)(cpu->sp);
+                    LOG("tty  %02x\n", c);
+                    write_tty(cpu->tty, c);
+                    break;
 
-                    LOG("tty  %02x\n", *(uint8_t *)(cpu->sp - 1));
-                    write_tty(cpu->tty, *(uint8_t *)(cpu->sp - 1));
+                case IRQ_P0:
+                case IRQ_P1:
+                case IRQ_P2:
+                case IRQ_P3:
+                    port = find_port(cpu, irq);
+                    len = *(uint8_t *)(cpu->sp - 1);
                     cpu->sp -= 1;
+                    data = malloc(len);
+                    memcpy(data, cpu->sp - len, len);
+                    cpu->sp -= len;
+                    LOG("prt%i %016llx <- %02lx bytes\n", port->n, isr, len);
+                    write_port(port, data, len);
+                    set_port_isr(cpu, port, isr);
                     break;
-
-                case IRQ_DISK_SET:
-                    LOG("disk %016llx set\n", isr);
-                    set_disk_position(cpu->disk, isr);
-                    break;
-
-                case IRQ_DISK_RD:
-                    // we don't have an isr
-                    cpu->sp += 8;
-
-                    c = read_disk(cpu->disk);
-                    LOG("disk %016lx <- %02x\n", cpu->disk->pos, c);
-                    memcpy(cpu->sp, &c, 1);
-                    cpu->sp += 1;
-                    break;
-
-                case IRQ_DISK_WR:
-                    // we don't have an isr
-                    cpu->sp += 8;
-
-                    LOG("disk %016lx -> %02x\n", cpu->disk->pos,
-                            *(cpu->sp - 1));
-                    write_disk(cpu->disk, *(cpu->sp - 1));
-                    cpu->sp -= 1;
-                    break;
-
-                /*
-                case IRQ_P0_IN:
-                case IRQ_P1_IN:
-                case IRQ_P2_IN:
-                case IRQ_P3_IN:
-                    LOG("port%i @ %016llx\n", (irq - IRQ_P0_IN) / 8, t);
-                    set_port_isr(cpu,      (irq - IRQ_P0_IN) / 8, t);
-                    cpu->sp -= 4;
-                    break;
-
-                case IRQ_P0_OUT:
-                case IRQ_P1_OUT:
-                case IRQ_P2_OUT:
-                case IRQ_P3_OUT:
-                    //LOG("port%i <- %02x\n", (irq - IRQ_P0_OUT) / 8, t);
-                    write_port(cpu->port0 + (irq - IRQ_P0_OUT) / 8, t);
-                    cpu->sp -= 4;
-                    break;
-                */
 
                 default:
                     LOG("not supported\n");
@@ -656,7 +629,7 @@ set_timer_isr(cpu_t *cpu, uint64_t isr, uint64_t t)
         exit(1);
     }
 
-    memcpy(&cpu->mem[IRQ_CLK], &isr, 4);
+    memcpy(&cpu->mem[IRQ_CLK], &isr, 8);
 }
 
 void
@@ -694,10 +667,15 @@ handle_kbd(cpu_t *cpu)
     }
 }
 
-void
-set_port_isr(cpu_t *cpu, int portno, uint64_t isr)
+port_t *
+find_port(cpu_t *cpu, irq_t irq)
 {
-    port_t *port = cpu->port0 + portno;
+    return cpu->port0 + (irq - IRQ_P0) * 0x100;
+}
+
+void
+set_port_isr(cpu_t *cpu, port_t *port, uint64_t isr)
+{
     // watch for input
     memset(&cpu->ke, 0, sizeof(struct kevent));
     EV_SET(&cpu->ke, port->r, EVFILT_READ, EV_ADD | EV_CLEAR,
@@ -718,20 +696,21 @@ set_port_isr(cpu_t *cpu, int portno, uint64_t isr)
         exit(1);
     }
 
-    memcpy(&cpu->mem[IRQ_P0_IN + portno * 8], &isr, 4);
+    memcpy(&cpu->mem[IRQ_P0 + port->n * 0x100], &isr, 8);
 }
 
 void
 handle_port_read(cpu_t *cpu, port_t *port)
 {
-    char c;
-    while (read_port(port, &c)) {
-        memset(cpu->sp, 0, 4);
-        *(cpu->sp) = c;
-        cpu->sp += 4;
-        uint32_t ptr = *(uint32_t *)(&cpu->mem[IRQ_P0_IN + port->n * 8]);
-        LOG("port%i -> %02x, jumping to %08x\n", port->n, c, ptr);
-        handle_irq(cpu, &cpu->mem[ptr]);
-    }
+    uint8_t buf[0x100];
+    size_t len;
+    uint64_t ptr = *(uint64_t *)(&cpu->mem[IRQ_P0 + port->n * 0x100]);
+    uint8_t *out = &cpu->mem[IRQ_P0 + port->n * 0x100 + 0x100];
+
+    len = read_port(port, buf, 0x100);
+    memcpy(out, &buf, len);
+    out += len;
+    LOG("prt%i wrote %08lx bytes -> %016llx\n", port->n, len, ptr);
+    handle_irq(cpu, &cpu->mem[ptr]);
 }
 

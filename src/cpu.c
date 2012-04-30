@@ -4,6 +4,7 @@
 #include <getopt.h>
 
 #include "src/lib/cpu/cpu.h"
+#include "src/lib/cpu/hardware/peripheral/disk.h"
 
 int
 main(int argc, char *argv[])
@@ -26,6 +27,8 @@ main(int argc, char *argv[])
 
     argc -= optind;
     argv += optind;
+
+    disk_t *disk = init_disk(cpu->port0, "/tmp/disk");
 
     cpu->halted = false;
     load_cpu(cpu, sys_file);

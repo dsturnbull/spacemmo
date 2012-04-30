@@ -24,7 +24,7 @@ SV_CFLAGS+=-flto $(OPT)
 SV_LDFLAGS=$(LDFLAGS)
 
 LIB=libspacemmo.dylib
-LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c src/lib/cpu/hardware/peripheral/*.c) src/lib/cpu/sasm/sasm.c
+LIB_SRCS=$(wildcard src/lib/*.c src/lib/ui/*.c src/lib/cpu/*.c src/lib/cpu/hardware/*.c src/lib/cpu/hardware/peripheral/disk.c) src/lib/cpu/sasm/sasm.c
 LIB_OBJS=$(LIB_SRCS:%.c=%.o)
 LIB_LDFLAGS+=-L. -ledit
 

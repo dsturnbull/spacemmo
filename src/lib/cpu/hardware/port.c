@@ -28,28 +28,25 @@ init_port(int n)
     return port;
 }
 
-bool
-read_port(port_t *port, char *c)
+size_t
+read_port(port_t *port, uint8_t *data, size_t len)
 {
-    if (read(port->r, c, 1) == 1)
-        return true;
-    return false;
+    int r;
+    if ((r = read(port->r, data, len)) > 0)
+        return r;
+    return 0;
 }
 
 void
-write_port(port_t *port, char c)
+write_port(port_t *port, uint8_t *data, size_t len)
 {
     if (port->handler)
-        port->handler(port, c);
+        port->handler(port, data, len);
 }
 
 void
 write_client(port_t *port, void *data, size_t len)
 {
-    printf("port%i ->", port->n);
-    for (size_t i = 0; i < len; i++)
-        printf(" %02x", ((uint8_t *)data)[i]);
-    printf("\n");
     write(port->w, data, len);
 }
 

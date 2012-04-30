@@ -11,8 +11,9 @@
 #include "src/lib/ui/console.h"
 #include "src/lib/cpu/cpu.h"
 
-#include "src/lib/cpu/hardware/peripheral/thruster.h"
-#include "src/lib/cpu/hardware/peripheral/radar.h"
+#include "src/lib/cpu/hardware/peripheral/disk.h"
+//#include "src/lib/cpu/hardware/peripheral/thruster.h"
+//#include "src/lib/cpu/hardware/peripheral/radar.h"
 
 int
 main(int argc, char *argv[])
@@ -42,11 +43,12 @@ main(int argc, char *argv[])
     //client->ui->input = client->entity->cpu->kbd->input;
 
     cpu_t *cpu = client->entity->cpu;
-    load_cpu(cpu, "data/progs/tests/simple.sys");
+    load_cpu(cpu, "data/progs/tests/disk.sys");
     cpu->halted = false;
 
-    thruster_t *thruster = init_thruster(cpu->port0, client->entity->acc);
-    radar_t *radar = init_radar(cpu->port1, client->entity->system);
+    disk_t *disk = init_disk(cpu->port0, "/tmp/disk");
+    //thruster_t *thruster = init_thruster(cpu->port1, client->entity->acc);
+    //radar_t *radar = init_radar(cpu->port2, client->entity->system);
 
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
         process_input(client->ui->console);

@@ -16,7 +16,7 @@ init_thruster(port_t *port, vec3f *acc)
 }
 
 void
-thrust(port_t *port, char c)
+thrust(port_t *port, uint64_t c)
 {
     thruster_t *thruster = (thruster_t *)port->hw;
     struct thruster_status status;

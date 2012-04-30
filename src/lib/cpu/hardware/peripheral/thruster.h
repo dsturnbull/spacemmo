@@ -24,7 +24,7 @@ struct thruster_status {
 };
 
 thruster_t * init_thruster(port_t *, vec3f *);
-void thrust(port_t *, char);
+void thrust(port_t *, uint64_t);
 
 #endif
 
