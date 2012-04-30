@@ -79,8 +79,8 @@ typedef enum op_e {
     // 0-operands
     NOP     =   0x00,
     HLT     =   0x01,
-    RET     =   0x02,
-    CALL    =   0x03,
+    CALL    =   0x02,
+    RET     =   0x03,
 
     // b/w/d/q operand
     LOAD    =   0x04,
@@ -93,13 +93,14 @@ typedef enum op_e {
     OR      =   0x0b,
     JMP     =   0x0c,
     JE      =   0x0d,
-    JZ      =   0x0e,
-    JNZ     =   0x0f,
-    DUP     =   0x10,
-    PUSH    =   0x11,
-    POP     =   0x12,
-    SWAP    =   0x13,
-    INT     =   0x14,
+    JNE     =   0x0e,
+    JZ      =   0x0f,
+    JNZ     =   0x10,
+    DUP     =   0x11,
+    PUSH    =   0x12,
+    POP     =   0x13,
+    SWAP    =   0x14,
+    INT     =   0x15,
 } op_t;
 
 cpu_t * init_cpu();
@@ -113,8 +114,8 @@ void print_region(cpu_t *, uint8_t *, uint8_t *, size_t, int);
 void handle_op      (cpu_t *, opcode_t *);
 void handle_nop     (cpu_t *, instruction_t *);
 void handle_hlt     (cpu_t *, instruction_t *);
-void handle_ret     (cpu_t *, instruction_t *);
 void handle_call    (cpu_t *, instruction_t *);
+void handle_ret     (cpu_t *, instruction_t *);
 void handle_load    (cpu_t *, instruction_t *);
 void handle_store   (cpu_t *, instruction_t *);
 void handle_add     (cpu_t *, instruction_t *);
@@ -125,6 +126,7 @@ void handle_and     (cpu_t *, instruction_t *);
 void handle_or      (cpu_t *, instruction_t *);
 void handle_jmp     (cpu_t *, instruction_t *);
 void handle_je      (cpu_t *, instruction_t *);
+void handle_jne     (cpu_t *, instruction_t *);
 void handle_jz      (cpu_t *, instruction_t *);
 void handle_jnz     (cpu_t *, instruction_t *);
 void handle_dup     (cpu_t *, instruction_t *);
@@ -134,11 +136,11 @@ void handle_swap    (cpu_t *, instruction_t *);
 void handle_int     (cpu_t *, instruction_t *);
 
 void handle_irq(cpu_t *, uint8_t *);
-void set_timer_isr(cpu_t *, uint32_t, uint32_t);
+void set_timer_isr(cpu_t *, uint64_t, uint64_t);
 void handle_timer(cpu_t *);
-void set_kbd_isr(cpu_t *, uint32_t);
+void set_kbd_isr(cpu_t *, uint64_t);
 void handle_kbd(cpu_t *);
-void set_port_isr(cpu_t *, int, uint32_t);
+void set_port_isr(cpu_t *, int, uint64_t);
 void handle_port_read(cpu_t *, port_t *);
 
 #endif

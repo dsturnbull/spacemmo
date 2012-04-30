@@ -21,9 +21,8 @@ typedef struct variable_st {
     size_t refs_sz;
     size_t refs_len;
     uint64_t *refs;
-    uint64_t *data;
+    uint8_t *data;
     size_t len;
-    size_t data_len;
 } variable_t;
 
 typedef struct sasm_st {

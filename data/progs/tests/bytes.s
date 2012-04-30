@@ -3,7 +3,7 @@ dw w 0xffff
 dd d 0xffffffff
 dq q 0xffffffffffffffff
 
-e equ 0x84
+;e equ 0x84
 
 db a 'a'
 db sr "hello"
@@ -30,6 +30,10 @@ _main:
     pop byte
 
     ;push e
+    ;pop
+
+    push sr
+    pop
 
     pop qword
     pop dword

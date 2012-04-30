@@ -5,15 +5,15 @@
 %}
 
 %%
-byte			return QBYTE;
-word			return QWORD;
-dword			return QDWORD;
-qword			return QQWORD;
+byte			yylval.width = 1; return QSTYPE;
+word			yylval.width = 2; return QSTYPE;
+dword			yylval.width = 4; return QSTYPE;
+qword			yylval.width = 8; return QSTYPE;
 
-db			return QDB;
-dw			return QDW;
-dd			return QDD;
-dq			return QDQ;
+db			yylval.width = 1; return QDTYPE;
+dw			yylval.width = 2; return QDTYPE;
+dd			yylval.width = 4; return QDTYPE;
+dq			yylval.width = 8; return QDTYPE;
 
 equ			return QEQU;
 
@@ -29,6 +29,7 @@ and			return QAND;
 or			return QOR;
 jmp			return QJMP;
 je			return QJE;
+jne			return QJNE;
 jz			return QJZ;
 jnz			return QJNZ;
 call			return QCALL;
@@ -41,7 +42,7 @@ int			return QINT;
 
 [0-9]+                  yylval.number = strtoull(yytext, NULL, 0); return QNUMBER;
 0x[0-9A-Fa-f]+		sscanf(yytext, "%llx", (uint64_t *)&yylval); return QNUMBER;
-[_a-zA-Z][a-zA-Z0-9]*	yylval.string = strdup(yytext); return QTEXT;
+[_a-zA-Z][_a-zA-Z0-9]*	yylval.string = strdup(yytext); return QTEXT;
 :			return QCOLON;
 \n                      return QNEWLINE;
 ;.*			return QCOMMENT;

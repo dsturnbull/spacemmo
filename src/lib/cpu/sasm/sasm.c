@@ -187,11 +187,11 @@ add_variable_ref(sasm_t *sasm, variable_t *var, uint64_t ref)
 }
 
 variable_t *
-define_constant(sasm_t *sasm, char *name, uint64_t value)
+define_constant(sasm_t *sasm, char *name, uint64_t addr)
 {
     variable_t *var = new_variable(sasm);
     var->name = strdup(name);
-    var->value = value;
+    var->addr = addr;
     return var;
 }
 
@@ -201,8 +201,8 @@ define_data(sasm_t *sasm, char *name, char *data)
     variable_t *var = new_variable(sasm);
 
     var->name = strdup(name);
-    var->data_len = strlen(data) * sizeof(uint64_t);
-    var->data = malloc(var->data_len);
+    var->len = strlen(data);
+    var->data = malloc(var->len);
 
     for (size_t j = 0; j < strlen(data); j++)
         var->data[j] = data[j];
@@ -230,7 +230,7 @@ define_relative(sasm_t *sasm)
     //            break;
 
     //    sasm->labels[j].name = strdup(name);
-    //    sasm->labels[j].addr = sasm->labels[i].data_len / sizeof(uint64_t);
+    //    sasm->labels[j].addr = sasm->labels[i].len / sizeof(uint64_t);
     //}
 }
 
@@ -245,8 +245,7 @@ define_label(sasm_t *sasm, char *s)
     } else {
         printf("haven't seen %s, adding constant @ %016lx\n",
                 s, sasm->ip - sasm->prog);
-        var = define_constant(sasm, s, 0);
-        var->addr = sasm->ip - sasm->prog;
+        var = define_constant(sasm, s, sasm->ip - sasm->prog);
     }
 
     return var;
@@ -270,11 +269,17 @@ write_data(sasm_t *sasm)
         variable_t *var = &sasm->variables[i];
 
         if (var->len > 0) {
-            printf("writing %016llx at %016lx for %s\n",
-                    var->value, sasm->ip - sasm->prog,
+            if (var->data) {
+                printf("writing %s ", var->data);
+                memcpy(sasm->ip, var->data, var->len);
+            } else {
+                printf("writing %016llx ", var->value);
+                memcpy(sasm->ip, &var->value, var->len);
+            }
+
+            printf("@ %016lx for %s\n", sasm->ip - sasm->prog,
                     var->name);
 
-            memcpy(sasm->ip, &var->value, var->len);
             var->addr = sasm->ip - sasm->prog;
         }
 
@@ -307,7 +312,7 @@ opflags(size_t sz)
             return 3;
 
         default:
-            fprintf(stderr, "invalid size\n");
+            fprintf(stderr, "invalid size: %lu\n", sz);
             exit(1);
     }
 }
