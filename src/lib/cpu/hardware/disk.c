@@ -38,7 +38,7 @@ init_disk(char *fn)
 }
 
 void
-set_disk_position(disk_t *disk, uint32_t position)
+set_disk_position(disk_t *disk, size_t position)
 {
     disk->curpos = &disk->map[position];
     disk->pos = disk->curpos - disk->map;
@@ -55,10 +55,8 @@ read_disk(disk_t *disk)
 void
 write_disk(disk_t *disk, uint8_t c)
 {
-    printf("%08lx\n", disk->pos);
     *(disk->curpos++) = c;
     disk->pos = disk->curpos - disk->map;
-    printf("%08lx\n", disk->pos);
     msync(disk->map, 0, CPU_DISK_SIZE - 1);
 }
 

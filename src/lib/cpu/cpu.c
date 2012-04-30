@@ -69,7 +69,7 @@ init_cpu()
     cpu->opmap[SWAP]    = &handle_swap;
     cpu->opmap[INT]     = &handle_int;
 
-    wait_tty_slave(cpu->tty);
+    //wait_tty_slave(cpu->tty);
 
     return cpu;
 }
@@ -530,6 +530,8 @@ handle_int(cpu_t *cpu, instruction_t *op)
 {
     irq_t irq;
     uint64_t isr;
+    uint8_t c;
+
     switch (op->op) {
         case INT:
             irq = *((uint64_t *)(cpu->sp - 8));
@@ -545,14 +547,14 @@ handle_int(cpu_t *cpu, instruction_t *op)
                 */
 
                 case IRQ_CLK:
-                    LOG("clk timer %04x -> %016llx\n",
-                            *(uint16_t *)(cpu->sp - 2), isr);
+                    LOG("clk  -> %016llx (%04xms)\n",
+                            isr, *(uint16_t *)(cpu->sp - 2));
                     set_timer_isr(cpu, isr, *(uint16_t *)(cpu->sp - 2));
                     cpu->sp -= 2;
                     break;
 
                 case IRQ_KBD:
-                    LOG("kbd int %016llx\n", isr);
+                    LOG("kbd  <- %016llx\n", isr);
                     set_kbd_isr(cpu, isr);
                     break;
 
@@ -560,31 +562,37 @@ handle_int(cpu_t *cpu, instruction_t *op)
                     // we don't have an isr
                     cpu->sp += 8;
 
-                    LOG("tty -> %02x\n", *(uint8_t *)(cpu->sp - 1));
+                    LOG("tty  %02x\n", *(uint8_t *)(cpu->sp - 1));
                     write_tty(cpu->tty, *(uint8_t *)(cpu->sp - 1));
                     cpu->sp -= 1;
                     break;
 
-                /*
                 case IRQ_DISK_SET:
-                    LOG("disk set %016llx.. ", t);
-                    set_disk_position(cpu->disk, t);
-                    LOG("%08lx\n", cpu->disk->pos);
+                    LOG("disk %016llx set\n", isr);
+                    set_disk_position(cpu->disk, isr);
                     break;
 
                 case IRQ_DISK_RD:
-                    LOG("disk read from %08lx: ", cpu->disk->pos);
-                    u = read_disk(cpu->disk);
-                    memcpy(cpu->sp - 4, &u, 4);
-                    LOG("%016llx\n", u);
-                    //handle_irq(cpu, &cpu->mem[t]);
+                    // we don't have an isr
+                    cpu->sp += 8;
+
+                    c = read_disk(cpu->disk);
+                    LOG("disk %016lx <- %02x\n", cpu->disk->pos, c);
+                    memcpy(cpu->sp, &c, 1);
+                    cpu->sp += 1;
                     break;
 
                 case IRQ_DISK_WR:
-                    LOG("disk write -> %016llx @ %08lx\n", t, cpu->disk->pos);
-                    write_disk(cpu->disk, t);
+                    // we don't have an isr
+                    cpu->sp += 8;
+
+                    LOG("disk %016lx -> %02x\n", cpu->disk->pos,
+                            *(cpu->sp - 1));
+                    write_disk(cpu->disk, *(cpu->sp - 1));
+                    cpu->sp -= 1;
                     break;
 
+                /*
                 case IRQ_P0_IN:
                 case IRQ_P1_IN:
                 case IRQ_P2_IN:

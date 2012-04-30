@@ -9,7 +9,7 @@
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/sasm/sasm.h"
 
-extern FILE *yyin;
+FILE *yyin;
 
 sasm_t *
 init_sasm()
@@ -257,9 +257,9 @@ write_prologue(sasm_t *sasm)
     // jump to main
     variable_t *main_loc = find_variable(sasm, "_main");
     sasm->ip = sasm->prog;
-    push1(sasm, PUSH, &main_loc->addr, sizeof(uint64_t));
-    push0(sasm, CALL, sizeof(uint8_t));
-    push0(sasm, HLT, sizeof(uint8_t));
+    push1(sasm, PUSH, &main_loc->addr, 8);
+    push0(sasm, CALL, 1);
+    push0(sasm, HLT, 1);
 }
 
 void
@@ -289,8 +289,7 @@ write_data(sasm_t *sasm)
                     var->refs[j],
                     var->addr);
 
-            memcpy(sasm->prog + var->refs[j], &var->addr,
-                    sizeof(uint64_t));
+            memcpy(sasm->prog + var->refs[j], &var->addr, 8);
         }
 
         sasm->ip += var->len;

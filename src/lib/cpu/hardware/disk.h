@@ -15,7 +15,7 @@ typedef struct disk_st {
 } disk_t;
 
 disk_t * init_disk(char *);
-void set_disk_position(disk_t *, uint32_t);
+void set_disk_position(disk_t *, size_t);
 uint8_t read_disk(disk_t *);
 void write_disk(disk_t *, uint8_t);
 

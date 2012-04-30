@@ -5,8 +5,6 @@
 
 #include "src/lib/cpu/cpu.h"
 
-FILE *yyin;
-
 int
 main(int argc, char *argv[])
 {

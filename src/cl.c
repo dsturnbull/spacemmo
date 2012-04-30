@@ -9,7 +9,6 @@
 #include "src/lib/entity.h"
 #include "src/lib/ui.h"
 #include "src/lib/ui/console.h"
-#include "src/lib/cpu/sasm/sasm.h"
 #include "src/lib/cpu/cpu.h"
 
 #include "src/lib/cpu/hardware/peripheral/thruster.h"
@@ -43,10 +42,7 @@ main(int argc, char *argv[])
     //client->ui->input = client->entity->cpu->kbd->input;
 
     cpu_t *cpu = client->entity->cpu;
-    //sasm_t *sasm = init_sasm();
-    //assemble(sasm, "data/progs/bytes.s");
-    load_cpu(cpu,  "data/progs/bytes.sys");
-    //free_sasm(sasm);
+    load_cpu(cpu, "data/progs/tests/simple.sys");
     cpu->halted = false;
 
     thruster_t *thruster = init_thruster(cpu->port0, client->entity->acc);
