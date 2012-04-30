@@ -39,6 +39,7 @@ yywrap()
 %token <string>	QTEXT
 %token <width> QSTYPE
 %token <width> QDTYPE
+%token <width> QRTYPE
 
 %%
 
@@ -52,6 +53,7 @@ stmt:
 	| lbl_def
 	| data | data_str | data_chr
 	| equ
+	| res
 	| push | pusht | pushv | pushtv
 	| pop  | popt
 	| dup  | dupt
@@ -87,7 +89,7 @@ data:
 
 data_str:
 	QDTYPE QTEXT QDQUOTE QTEXT QDQUOTE QNEWLINE {
-		define_data(ysasm, $2, $4);
+		define_data(ysasm, $2, (uint8_t *)$4, strlen($4));
 	};
 
 data_chr:
@@ -98,6 +100,13 @@ data_chr:
 equ:
 	QTEXT QEQU QNUMBER QNEWLINE {
 		define_constant(ysasm, $1, $3);
+	};
+
+res:
+	QRTYPE QTEXT QNUMBER QNEWLINE {
+		uint8_t *data = calloc($1, $3);
+		define_data(ysasm, $2, data, $3 * $1);
+		free(data);
 	};
 
 push:

@@ -52,13 +52,14 @@ assemble(sasm_t *sasm, char *src_file)
     define_constant(sasm, "TTY",        IRQ_TTY);
 
     define_constant(sasm, "IO_0",       IRQ_P0);
-    define_constant(sasm, "IO_0_OUT",   IRQ_P0_OUT);
     define_constant(sasm, "IO_1",       IRQ_P1);
-    define_constant(sasm, "IO_1_OUT",   IRQ_P1_OUT);
     define_constant(sasm, "IO_2",       IRQ_P2);
-    define_constant(sasm, "IO_2_OUT",   IRQ_P2_OUT);
     define_constant(sasm, "IO_3",       IRQ_P3);
-    define_constant(sasm, "IO_3_OUT",   IRQ_P3_OUT);
+
+    define_constant(sasm, "IO_0_BUF",   IRQ_P0_BUF);
+    define_constant(sasm, "IO_1_BUF",   IRQ_P1_BUF);
+    define_constant(sasm, "IO_2_BUF",   IRQ_P2_BUF);
+    define_constant(sasm, "IO_3_BUF",   IRQ_P3_BUF);
 
     char *sys_file = replace_ext(src_file, ".sys");
 
@@ -191,16 +192,14 @@ define_constant(sasm_t *sasm, char *name, uint64_t addr)
 }
 
 variable_t *
-define_data(sasm_t *sasm, char *name, char *data)
+define_data(sasm_t *sasm, char *name, uint8_t *data, size_t len)
 {
     variable_t *var = new_variable(sasm);
 
     var->name = strdup(name);
-    var->len = strlen(data);
-    var->data = malloc(var->len);
-
-    for (size_t j = 0; j < strlen(data); j++)
-        var->data[j] = data[j];
+    var->len = len;
+    var->data = malloc(len);
+    memcpy(var->data, data, len);
 
     return var;
 }

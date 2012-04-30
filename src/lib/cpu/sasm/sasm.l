@@ -15,6 +15,11 @@ dw			yylval.width = 2; return QDTYPE;
 dd			yylval.width = 4; return QDTYPE;
 dq			yylval.width = 8; return QDTYPE;
 
+resb			yylval.width = 1; return QRTYPE;
+resw			yylval.width = 2; return QRTYPE;
+resd			yylval.width = 4; return QRTYPE;
+resq			yylval.width = 8; return QRTYPE;
+
 equ			return QEQU;
 
 nop			return QNOP;

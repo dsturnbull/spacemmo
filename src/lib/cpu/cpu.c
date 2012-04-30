@@ -25,21 +25,12 @@ init_cpu()
         exit(1);
     }
 
-    // register update timer
-    memset(&cpu->ke, 0, sizeof(struct kevent));
-    EV_SET(&cpu->ke, 0, EVFILT_TIMER, EV_ADD, NOTE_USECONDS, 1000, NULL);
-
-    if (kevent(cpu->kq, &cpu->ke, 1, NULL, 0, NULL) == -1) {
-        perror("kevent");
-        exit(1);
-    }
-
     cpu->log = stdout;
     cpu->tty = init_tty();
-    cpu->port0 = init_port(0);
-    cpu->port1 = init_port(1);
-    cpu->port2 = init_port(2);
-    cpu->port3 = init_port(3);
+    cpu->port0 = init_port(0, &cpu->mem[IRQ_P0_BUF], 0x100);
+    cpu->port1 = init_port(1, &cpu->mem[IRQ_P1_BUF], 0x100);
+    cpu->port2 = init_port(2, &cpu->mem[IRQ_P2_BUF], 0x100);
+    cpu->port3 = init_port(3, &cpu->mem[IRQ_P3_BUF], 0x100);
 
     cpu->halted = true;
 
@@ -103,32 +94,15 @@ load_cpu(cpu_t *cpu, char *sys_file)
     fclose(sys_fp);
     memcpy(cpu->mem, sys_buf, st.st_size);
     free(sys_buf);
-
-    // load source lookup
-    //if ((dbg_fp = fopen(dbg_file, "r")) == NULL) {
-    //    perror("dbg_file");
-    //    exit(1);
-    //}
-
-    //cpu->src = calloc(st.st_size, sizeof(char *));
-    //while (true) {
-    //    int pos, len;
-    //    if (fread(&pos, sizeof(pos), 1, dbg_fp) == 0)
-    //        break;
-    //    fread(&len, sizeof(len), 1, dbg_fp);
-
-    //    cpu->src[pos] = malloc(len + 1);
-    //    fread(cpu->src[pos], len, 1, dbg_fp);
-    //    cpu->src[pos][len] = '\0';
-    //}
 }
 
 void
 run_cpu(cpu_t *cpu)
 {
+    struct timespec ts;
     while (true) {
         memset(&cpu->ke, 0, sizeof(cpu->ke));
-        if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, NULL) > 0) {
+        if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, &ts) > 0) {
             if (cpu->mem[IRQ_CLK] && cpu->ke.ident == IRQ_CLK)
                 handle_timer(cpu);
 
@@ -138,7 +112,7 @@ run_cpu(cpu_t *cpu)
 
             for (int i = 0; i < 4; i++) {
                 port_t *port = cpu->port0 + i;
-                if (*(uint64_t *)(&cpu->mem[IRQ_P0 + i * 0x100])) {
+                if (*(uint64_t *)(&cpu->mem[IRQ_P0 + i * 8])) {
                     if (cpu->ke.ident == (uintptr_t)port->r) {
                         handle_port_read(cpu, port);
                     }
@@ -147,7 +121,8 @@ run_cpu(cpu_t *cpu)
         }
 
         if (cpu->halted)
-            return;
+            exit(0);
+            //return;
             //continue;
 
         step_cpu(cpu);
@@ -164,8 +139,8 @@ step_cpu(cpu_t *cpu)
     //char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
     //LOG("[\033[36m%-97s\033[0m] ", line);
 
-    LOG("%016lx op:%02x flags:%02x ip: %016lx rp: %016lx sp: %016lx ",
-            cpu->ip - cpu->mem, opcode.op, opcode.flags,
+    LOG("%016lx cy: %08lx op:%02x flags:%02x ip: %016lx rp: %016lx sp: %016lx ",
+            cpu->ip - cpu->mem, cpu->cycles, opcode.op, opcode.flags,
             cpu->ip - cpu->mem,
             cpu->rp - &cpu->mem[CPU_RET_STACK],
             cpu->sp - &cpu->mem[CPU_STACK]);
@@ -282,7 +257,7 @@ handle_load(cpu_t *cpu, instruction_t *op)
     memcpy(cpu->sp, &val, op->len);
     cpu->sp += op->len;
 
-    LOG("load %016llx <- %016llx\n", val, loc);
+    LOG("load %016llx <- %016llx\n", loc, val);
     cpu->ip++;
 }
 
@@ -297,7 +272,7 @@ handle_store(cpu_t *cpu, instruction_t *op)
     cpu->sp -= 8;
     memcpy(&loc, cpu->sp, 8);
 
-    LOG("stor %016llx -> %016llx\n", val, loc);
+    LOG("stor %016llx -> %016llx\n", loc, val);
     memcpy(&cpu->mem[loc], &val, op->len);
     cpu->ip++;
 }
@@ -670,7 +645,7 @@ handle_kbd(cpu_t *cpu)
 port_t *
 find_port(cpu_t *cpu, irq_t irq)
 {
-    return cpu->port0 + (irq - IRQ_P0) * 0x100;
+    return cpu->port0 + (irq - IRQ_P0) * 8;
 }
 
 void
@@ -696,7 +671,7 @@ set_port_isr(cpu_t *cpu, port_t *port, uint64_t isr)
         exit(1);
     }
 
-    memcpy(&cpu->mem[IRQ_P0 + port->n * 0x100], &isr, 8);
+    memcpy(&cpu->mem[IRQ_P0 + port->n * 8], &isr, 8);
 }
 
 void
@@ -704,8 +679,8 @@ handle_port_read(cpu_t *cpu, port_t *port)
 {
     uint8_t buf[0x100];
     size_t len;
-    uint64_t ptr = *(uint64_t *)(&cpu->mem[IRQ_P0 + port->n * 0x100]);
-    uint8_t *out = &cpu->mem[IRQ_P0 + port->n * 0x100 + 0x100];
+    uint64_t ptr = *(uint64_t *)(&cpu->mem[IRQ_P0 + port->n * 8]);
+    uint8_t *out = &cpu->mem[IRQ_P0 + port->n * 8 + 8];
 
     len = read_port(port, buf, 0x100);
     memcpy(out, &buf, len);

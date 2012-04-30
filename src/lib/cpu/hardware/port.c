@@ -8,10 +8,12 @@
 #include "src/lib/cpu/hardware/port.h"
 
 port_t *
-init_port(int n)
+init_port(int n, uint8_t *dma, size_t len)
 {
     port_t *port = calloc(1, sizeof(*port));
     port->n = n;
+    port->dma = dma;
+    port->dma_len = len;
 
     int fds[2];
     if (socketpair(PF_LOCAL, SOCK_STREAM, 0, fds) == -1) {

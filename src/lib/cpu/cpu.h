@@ -43,17 +43,18 @@ typedef struct cpu_st {
 
 typedef enum irq_e {
     IRQ_CLK     =   0xffe000,
-    IRQ_TTY     =   0xffe004,
-    IRQ_KBD     =   0xffe008,
+    IRQ_TTY     =   0xffe008,
+    IRQ_KBD     =   0xffe010,
 
-    IRQ_P0      =   0xffe100,
-    IRQ_P0_OUT  =   0xffe200,
-    IRQ_P1      =   0xffe300,
-    IRQ_P1_OUT  =   0xffe400,
-    IRQ_P2      =   0xffe500,
-    IRQ_P2_OUT  =   0xffe600,
-    IRQ_P3      =   0xffe700,
-    IRQ_P3_OUT  =   0xffe800,
+    IRQ_P0      =   0xffe020,
+    IRQ_P1      =   0xffe028,
+    IRQ_P2      =   0xffe030,
+    IRQ_P3      =   0xffe038,
+
+    IRQ_P0_BUF  =   0xffe100,
+    IRQ_P1_BUF  =   0xffe200,
+    IRQ_P2_BUF  =   0xffe300,
+    IRQ_P3_BUF  =   0xffe400,
 } irq_t;
 
 typedef struct opcode_st {

@@ -50,7 +50,7 @@ variable_t * find_variable(sasm_t *, char *);
 variable_t * find_or_create_variable(sasm_t *, char *);
 void add_variable_ref(sasm_t *, variable_t *, uint64_t);
 variable_t * define_constant(sasm_t *, char *, uint64_t);
-variable_t * define_data(sasm_t *, char *, char *);
+variable_t * define_data(sasm_t *, char *, uint8_t *, size_t);
 variable_t * define_label(sasm_t *, char *);
 void write_prologue(sasm_t *);
 void write_data(sasm_t *);
