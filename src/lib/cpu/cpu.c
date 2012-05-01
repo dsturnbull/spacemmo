@@ -440,11 +440,23 @@ void
 handle_swap(cpu_t *cpu, instruction_t *op)
 {
     uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
-    LOG("swap %016llx <> %016llx\n", a, b);
-    memcpy(cpu->sp - op->len * 1, &b, op->len);
-    memcpy(cpu->sp - op->len * 2, &a, op->len);
+
+    cpu->sp -= op->len;
+    memcpy(&a, cpu->sp, op->len);
+
+    cpu->sp -= 8;
+    memcpy(&b, cpu->sp, 8);
+
+    LOG("swap %016llx <> %016llx (top: %08lx)\n", a, b, op->len);
+
+    memset(cpu->sp, 0, op->len);
+    memcpy(cpu->sp, &a, op->len);
+    cpu->sp += op->len;
+
+    memset(cpu->sp, 0, 8);
+    memcpy(cpu->sp, &b, 8);
+    cpu->sp += 8;
+
     cpu->ip++;
 }
 

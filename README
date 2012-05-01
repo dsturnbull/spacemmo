@@ -1,4 +1,5 @@
 vm:
+    / paging
     * rethink interrupts
         code -> int
             kbd: save isr
@@ -16,7 +17,7 @@ vm:
     * refactor op handlers
     * add pseudo immediate mode instructions
     * add two-op swap instruction
-    / dos
+    * dos
     * unix
     * fpu
     * gfx

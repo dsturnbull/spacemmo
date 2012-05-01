@@ -48,12 +48,12 @@ int			return QINT;
 %include		return QINCLUDE;
 [0-9]+                  yylval.number = strtoull(yytext, NULL, 0); return QNUMBER;
 0x[0-9A-Fa-f]+		sscanf(yytext, "%llx", (uint64_t *)&yylval); return QNUMBER;
-[_a-zA-Z][_/.a-zA-Z0-9]*	yylval.string = strdup(yytext); return QTEXT;
+$-			return QEQUREL;
+[_a-zA-Z][_a-zA-Z0-9]*	yylval.string = strdup(yytext); return QTEXT;
+\"([^\\\"]|\\.)*\"	yylval.string = strdup(yytext); return QQTEXT;
 :			return QCOLON;
 \n                      return QNEWLINE;
 ;.*			return QCOMMENT;
-'			return QQUOTE;
-\"			return QDQUOTE;
 [ \t]+                  /* ignore whitespace */;
 %%
 

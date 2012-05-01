@@ -35,7 +35,7 @@ free_sasm(sasm_t *sasm)
 {
     free(sasm->prog);
     for (size_t i = 0; i < sasm->variables_len; i++)
-        if(sasm->variables[i].name)
+        if (sasm->variables[i].name)
             free(sasm->variables[i].name);
     free(sasm->variables);
     free(sasm);
@@ -95,7 +95,7 @@ push0(sasm_t *sasm, op_t op, size_t len)
     opcode.op = op;
     opcode.flags = opflags(len);
 
-    fprintf(stderr, "push0 %016lx = op:%02x\n", sasm->ip - sasm->prog, op);
+    printf("push0 %016lx = op:%02x\n", sasm->ip - sasm->prog, op);
 
     memcpy(sasm->ip, &opcode, sizeof(uint8_t));
     sasm->ip++;
@@ -108,12 +108,12 @@ push1(sasm_t *sasm, op_t op, void *data, size_t len)
     opcode.op = op;
     opcode.flags = opflags(len);
 
-    fprintf(stderr, "push1 %016lx = op:%02x data:%016llx\n",
+    printf("push1 %016lx = op:%02x data:%016llx\n",
             sasm->ip - sasm->prog, op, *(uint64_t *)data);
 
     memcpy(sasm->ip++, &opcode, sizeof(uint8_t));
     for (size_t i = 0; i < len; i++) {
-        fprintf(stderr, "push1 %016lx = db:%02x\n",
+        printf("push1 %016lx = db:%02x\n",
                 sasm->ip - sasm->prog, ((uint8_t *)data)[i]);
         *sasm->ip++ = ((char *)data)[i];
     }
@@ -122,6 +122,8 @@ push1(sasm_t *sasm, op_t op, void *data, size_t len)
 variable_t *
 define_variable(sasm_t *sasm, char *name, uint64_t value, size_t len)
 {
+    printf("define_variable, name:%s value:%016llx len:%08lx\n",
+            name, value, len);
     variable_t *var = find_or_create_variable(sasm, name);
     var->value = value;
     var->len = len;
@@ -131,6 +133,7 @@ define_variable(sasm_t *sasm, char *name, uint64_t value, size_t len)
 variable_t *
 new_variable(sasm_t *sasm)
 {
+    printf("new_variable\n");
     if (sasm->variables_len == sasm->variables_sz) {
         sasm->variables_sz *= 2;
         sasm->variables = realloc(sasm->variables,
@@ -143,6 +146,7 @@ new_variable(sasm_t *sasm)
 variable_t *
 find_variable(sasm_t *sasm, char *name)
 {
+    printf("find_variable name:%s\n", name);
     for (size_t i = 0; i < sasm->variables_len; i++)
         if (strcmp(sasm->variables[i].name, name) == 0)
             return &sasm->variables[i];
@@ -152,6 +156,7 @@ find_variable(sasm_t *sasm, char *name)
 variable_t *
 find_or_create_variable(sasm_t *sasm, char *name)
 {
+    printf("find_or_create_variable, name:%s\n", name);
     variable_t *variable;
     
     if ((variable = find_variable(sasm, name)) == NULL) {
@@ -163,14 +168,14 @@ find_or_create_variable(sasm_t *sasm, char *name)
 }
 
 void
-add_variable_ref(sasm_t *sasm, variable_t *var, uint64_t ref)
+add_variable_ref(sasm_t *sasm, variable_t *var, uint64_t addr, size_t reflen)
 {
     if (var->refs_sz == var->refs_len) {
         var->refs_sz *= 2;
         if (var->refs_sz == 0)
             var->refs_sz = 1;
 
-        var->refs = realloc(var->refs, var->refs_sz * sizeof(uint8_t *));
+        var->refs = realloc(var->refs, var->refs_sz * sizeof(variable_ref_t *));
 
         if (var->refs == NULL) {
             perror("calloc");
@@ -178,22 +183,47 @@ add_variable_ref(sasm_t *sasm, variable_t *var, uint64_t ref)
         }
     }
 
+    variable_ref_t *ref = calloc(1, sizeof(variable_ref_t));
+    ref->addr = addr;
+    ref->len = reflen;
+    printf("added ref for %s at %016llx\n", var->name, ref->addr);
+
     var->refs[var->refs_len++] = ref;
 }
 
 variable_t *
 define_constant(sasm_t *sasm, char *name, uint64_t addr)
 {
-    variable_t *var = new_variable(sasm);
+    printf("define_constant, name:%s addr:%016llx\n", name, addr);
+
+    variable_t *var = find_variable(sasm, name);
+
+    if (var) {
+        var->addr = sasm->ip - sasm->prog;
+        printf("already found, new addr: %016llx\n", var->addr);
+    } else {
+        printf("not seen\n");
+        var = new_variable(sasm);
+        var->addr = addr;
+    }
+
     var->name = strdup(name);
-    var->addr = addr;
     return var;
 }
 
 variable_t *
 define_data(sasm_t *sasm, char *name, uint8_t *data, size_t len)
 {
-    variable_t *var = new_variable(sasm);
+    printf("define_data, name:%s len:%08lx\n", name, len);
+
+    variable_t *var = find_variable(sasm, name);
+
+    if (var) {
+        printf("already found\n");
+    } else {
+        printf("not seen\n");
+        var = new_variable(sasm);
+    }
 
     var->name = strdup(name);
     var->len = len;
@@ -203,42 +233,19 @@ define_data(sasm_t *sasm, char *name, uint8_t *data, size_t len)
     return var;
 }
 
-void
-define_relative(sasm_t *sasm)
-{
-    //if (data[0] == '$') {
-    //    data += 2; // get rid of '$-'
-    //    //define_constant(sasm, name, data);
-    //    // the length of the previous named data label
-    //    int i;
-    //    for (i = 0; i < MAX_LABELS; i++)
-    //        if (sasm->labels[i].name &&
-    //                strcmp(sasm->labels[i].name, data) == 0)
-    //            break;
-
-    //    // the new label
-    //    int j;
-    //    for (j = 0; j < MAX_LABELS; j++)
-    //        if (sasm->labels[j].name == NULL)
-    //            break;
-
-    //    sasm->labels[j].name = strdup(name);
-    //    sasm->labels[j].addr = sasm->labels[i].len / sizeof(uint64_t);
-    //}
-}
-
 variable_t *
-define_label(sasm_t *sasm, char *s)
+define_label(sasm_t *sasm, char *name)
 {
-    variable_t *var = find_variable(sasm, s);
+    printf("define_label, name:%s\n", name);
+    variable_t *var = find_variable(sasm, name);
     if (var) {
-        printf("already found %s, new addr (%016lx), ref %016llx\n",
-                var->name, sasm->ip - sasm->prog, var->addr);
         var->addr = sasm->ip - sasm->prog;
+        printf("already found %s, new addr (%016llx) (%lu refs)\n",
+                var->name, var->addr, var->refs_len);
     } else {
         printf("haven't seen %s, adding constant @ %016lx\n",
-                s, sasm->ip - sasm->prog);
-        var = define_constant(sasm, s, sasm->ip - sasm->prog);
+                name, sasm->ip - sasm->prog);
+        var = define_constant(sasm, name, sasm->ip - sasm->prog);
     }
 
     return var;
@@ -247,6 +254,7 @@ define_label(sasm_t *sasm, char *s)
 void
 write_prologue(sasm_t *sasm)
 {
+    printf("writing prologue\n");
     // jump to main
     variable_t *main_loc = find_variable(sasm, "_main");
     sasm->ip = sasm->prog;
@@ -258,10 +266,14 @@ write_prologue(sasm_t *sasm)
 void
 write_data(sasm_t *sasm)
 {
+    printf("writing data\n");
+
+    printf("%016lx\n", sasm->ip - sasm->prog);
     for (size_t i = 0; i < sasm->variables_len; i++) {
         variable_t *var = &sasm->variables[i];
 
         if (var->len > 0) {
+            printf("var: %s\n", var->name);
             if (var->data) {
                 printf("writing %s ", var->data);
                 memcpy(sasm->ip, var->data, var->len);
@@ -270,22 +282,38 @@ write_data(sasm_t *sasm)
                 memcpy(sasm->ip, &var->value, var->len);
             }
 
-            printf("@ %016lx for %s\n", sasm->ip - sasm->prog,
-                    var->name);
-
             var->addr = sasm->ip - sasm->prog;
+            printf("@ %016llx for %s\n", var->addr, var->name);
+            sasm->ip += var->len;
+        }
+    }
+
+    printf("writing constants\n");
+
+    for (size_t i = 0; i < sasm->variables_len; i++) {
+        variable_t *var = &sasm->variables[i];
+        printf("var: %s\n", var->name);
+
+        if (var->refs_len == 0) {
+            printf("no refs for %s\n", var->name);
+            continue;
         }
 
         for (size_t j = 0; j < var->refs_len; j++) {
-            printf("%s replacing ref at %016llx with %016llx\n",
+            uint64_t value;
+            if (var->value)
+                value = var->value;
+            else
+                value = var->addr;
+
+            printf("%s replacing ref at %016llx with %016llx (%08lx)\n",
                     var->name,
-                    var->refs[j],
-                    var->addr);
+                    var->refs[j]->addr,
+                    value,
+                    var->refs[j]->len);
 
-            memcpy(sasm->prog + var->refs[j], &var->addr, 8);
+            memcpy(sasm->prog + var->refs[j]->addr, &value, var->refs[j]->len);
         }
-
-        sasm->ip += var->len;
     }
 }
 
@@ -314,12 +342,12 @@ print_prog(sasm_t *sasm)
 {
     uint8_t *p = sasm->prog;
     for (int i = 0; i < sasm->prog_len; i += 16) {
-        fprintf(stderr, "%016x: ", i);
+        printf("%016x: ", i);
         for (int j = 0; j < 16; j++) {
-            fprintf(stderr, "%02x ", *(p++));
+            printf("%02x ", *(p++));
         }
-        fprintf(stderr, "\n");
+        printf("\n");
     }
-    fprintf(stderr, "\n");
+    printf("\n");
 }
 

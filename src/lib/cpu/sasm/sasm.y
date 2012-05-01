@@ -48,12 +48,13 @@ yywrap()
 	uint8_t width;
 }
 
-%token QCOLON QNEWLINE QCOMMENT QQUOTE QDQUOTE QEQU QINCLUDE
+%token QCOLON QNEWLINE QCOMMENT QEQU QEQUREL QINCLUDE
 %token QNOP QHLT QLOAD QSTORE QADD QSUB QMUL QDIV QAND QOR
 %token QJMP QJE QJNE QJZ QJNZ QCALL QRET QDUP QPUSH QPOP QSWAP QINT
 
 %token <number>	QNUMBER
 %token <string>	QTEXT
+%token <string>	QQTEXT
 %token <width> QSTYPE
 %token <width> QDTYPE
 %token <width> QRTYPE
@@ -70,7 +71,7 @@ stmt:
 	| lbl_def
 	| include
 	| data | data_str | data_chr
-	| equ
+	| equ  | equrel
 	| res
 	| push | pusht | pushv | pushtv
 	| pop  | popt
@@ -96,13 +97,16 @@ comment:
 
 lbl_def:
 	QTEXT QCOLON QNEWLINE {
+		printf("lbl_def\n");
 		define_label(ysasm, $1);
 		free($1);
+		printf("\n\n");
 	};
 
 include:
-	QINCLUDE QDQUOTE QTEXT QDQUOTE QNEWLINE
+	QINCLUDE QQTEXT QNEWLINE
 	{
+		printf("include\n");
 		if (files == NULL) {
 			files = calloc(1, sizeof(struct yfile));
 			file = files;
@@ -111,57 +115,93 @@ include:
 			file = file->next;
 		}
 
-		file->fn = strdup($3);
+		// remove quotes
+		$2++;
+		$2[strlen($2) - 1] = '\0';
+		file->fn = strdup($2);
+		printf("\n\n");
 	};
 
 data:
 	QDTYPE QTEXT QNUMBER QNEWLINE {
+		printf("data\n");
 		define_variable(ysasm, $2, $3, $1);
+		printf("\n\n");
 	};
 
 data_str:
-	QDTYPE QTEXT QDQUOTE QTEXT QDQUOTE QNEWLINE {
-		define_data(ysasm, $2, (uint8_t *)$4, strlen($4));
+	QDTYPE QTEXT QQTEXT QNEWLINE {
+		printf("data_str\n");
+		// remove quotes
+		$3++;
+		$3[strlen($3) - 1] = '\0';
+		define_data(ysasm, $2, (uint8_t *)$3, strlen($3));
+		printf("\n\n");
 	};
 
 data_chr:
-	QDTYPE QTEXT QQUOTE QTEXT QQUOTE QNEWLINE {
-		define_variable(ysasm, $2, $4[0], sizeof(uint8_t));
+	QDTYPE QTEXT QTEXT QNEWLINE {
+		printf("data_chr\n");
+		define_variable(ysasm, $2, $3[0], sizeof(uint8_t));
+		printf("\n\n");
 	};
 
 equ:
 	QTEXT QEQU QNUMBER QNEWLINE {
+		printf("equ\n");
 		define_constant(ysasm, $1, $3);
+		printf("\n\n");
+	};
+
+equrel:
+	QTEXT QEQU QEQUREL QTEXT QNEWLINE {
+		printf("equrel\n");
+		variable_t *other = find_variable(ysasm, $4);
+		printf("%lu\n", other->len);
+		variable_t *var = define_constant(ysasm, $1, 0);
+		var->value = other->len;
+		printf("\n\n");
 	};
 
 res:
 	QRTYPE QTEXT QNUMBER QNEWLINE {
+		printf("res\n");
 		uint8_t *data = calloc($1, $3);
 		define_data(ysasm, $2, data, $3 * $1);
 		free(data);
+		printf("\n\n");
 	};
 
 push:
 	QPUSH QNUMBER QNEWLINE {
+		printf("push\n");
 		push1(ysasm, PUSH, &$2, 8);
+		printf("\n\n");
 	};
 
 pusht:
 	QPUSH QSTYPE QNUMBER QNEWLINE {
+		printf("pusht\n");
 		push1(ysasm, PUSH, &$3, $2);
+		printf("\n\n");
 	};
 
 pushv:
 	QPUSH QTEXT QNEWLINE {
+		printf("pushv\n");
 		variable_t *var = find_or_create_variable(ysasm, $2);
-		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1);
+		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1, 8);
 		push1(ysasm, PUSH, &var->addr, 8);
+		printf("\n\n");
 	};
 
 pushtv:
 	QPUSH QSTYPE QTEXT QNEWLINE {
+		printf("pushtv\n");
 		variable_t *var = find_or_create_variable(ysasm, $3);
+		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1, $2);
 		push1(ysasm, PUSH, &var->addr, $2);
+		printf("\n\n");
 	};
 
 pop:
@@ -324,8 +364,3 @@ int:	QINT	QNEWLINE { push0(ysasm, INT, 	1); };
 
 %%
 
-/*
-equrel:
-	QTEXT QEQU '$' '-' QNUMBER QNEWLINE {
-	};
-*/

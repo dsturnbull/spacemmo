@@ -14,13 +14,19 @@
 
 typedef struct opcode_st opcode_t;
 
+typedef struct variable_ref_st {
+    struct variable_st *var;
+    size_t len;
+    uint64_t addr;
+} variable_ref_t;
+
 typedef struct variable_st {
     char *name;
     uint64_t value;
     uint64_t addr;
     size_t refs_sz;
     size_t refs_len;
-    uint64_t *refs;
+    struct variable_ref_st **refs;
     uint8_t *data;
     size_t len;
 } variable_t;
@@ -48,7 +54,7 @@ variable_t * define_variable(sasm_t *, char *, uint64_t, size_t);
 variable_t * new_variable(sasm_t *);
 variable_t * find_variable(sasm_t *, char *);
 variable_t * find_or_create_variable(sasm_t *, char *);
-void add_variable_ref(sasm_t *, variable_t *, uint64_t);
+void add_variable_ref(sasm_t *, variable_t *, uint64_t, size_t);
 variable_t * define_constant(sasm_t *, char *, uint64_t);
 variable_t * define_data(sasm_t *, char *, uint8_t *, size_t);
 variable_t * define_label(sasm_t *, char *);

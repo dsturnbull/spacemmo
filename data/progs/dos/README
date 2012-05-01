@@ -1,0 +1,28 @@
+init
+	show system info
+	init fs
+	run shell
+
+shell
+	ls
+	rm
+	mv
+	cp
+
+	.. cmds
+
+fs
+	format
+	init
+	list
+	create
+	delete
+	read
+	write
+
+tty
+	print string
+	print number
+	read char
+	read line
+

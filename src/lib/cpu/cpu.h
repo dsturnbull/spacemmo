@@ -60,13 +60,13 @@ typedef enum irq_e {
 } irq_t;
 
 typedef struct opcode_st {
-    unsigned int op:5;
     unsigned int flags:3;
+    unsigned int op:5;
 } opcode_t;
 
 typedef struct instruction_st {
-    unsigned int op:5;
     unsigned int flags:3;
+    unsigned int op:5;
     size_t len;
 } instruction_t;
 
