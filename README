@@ -1,23 +1,39 @@
 vm:
-	* bytes
-	* dos
-	* unix
-	* fpu
-	* gfx
-	* sound
-	* netcode
+    * rethink interrupts
+        code -> int
+            kbd: save isr
+            tty: send char
+            clk: save isr, set timer
+            port: pop input len, send input to port
+        code <- int
+
+        check events:
+            kbd: push key, handle isr
+            clk: handle isr
+            port: push output len, send output to mem
+
+    * disable update timer when not halted
+    * refactor op handlers
+    * add pseudo immediate mode instructions
+    * add two-op swap instruction
+    * dos
+    * unix
+    * fpu
+    * gfx
+    * sound
 
 hw:
-	* radar
-	* lifesupport
-	* engine
-	* nav
-	* network
+    * engine
+    * radar
+    * lifesupport
+    * nav
+    * network
 
 game:
-	* c++
-	* gfx
-	* sound
+    * c++
+    * gfx
+    * sound
+    * netcode
 
 client_t
         entity_t entity
@@ -27,7 +43,7 @@ client_t
                 vec3f acc
                 system_t system
 
-		cpu_t cpu
+        cpu_t cpu
 
         server_t server
                 client_t clients[]
@@ -46,7 +62,7 @@ client_t
                                 update_world(dt)
                                         foreach entities:
                                                 update_entity(dt)
-			update_cpus()
+            update_cpus()
 
                 send_login_request(username, password)
 
@@ -73,3 +89,4 @@ client_t
                                 else
                                         send_login_failure_response()
 
+vim: ts=4:sts=4:sw=4:et

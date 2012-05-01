@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <sys/event.h>
+#include <sys/stat.h>
 
 #define CPU_MEMORY_SZ       0x1000000   // 16MB
 #define CPU_STACK           0xffa000    // 8KB stack
@@ -32,7 +33,8 @@ typedef struct cpu_st {
     FILE *log;
     bool debug;
     long cycles;
-    bool halted;
+    struct timespec *ts;
+    bool idling;
     char **src;
 
     void (**opmap)(cpu_t *, instruction_t *);
@@ -102,7 +104,8 @@ void load_cpu(cpu_t *, char *);
 void run_cpu(cpu_t *);
 void step_cpu(cpu_t *);
 void reset_cpu(cpu_t *);
-void print_region(cpu_t *, uint8_t *, uint8_t *, size_t, int);
+void handle_io(cpu_t *);
+void idle_cpu(cpu_t *);
 
 void handle_op      (cpu_t *, opcode_t *);
 void handle_nop     (cpu_t *, instruction_t *);
@@ -134,7 +137,6 @@ void handle_timer(cpu_t *);
 void set_kbd_isr(cpu_t *, uint64_t);
 void handle_kbd(cpu_t *);
 port_t * find_port(cpu_t *, irq_t);
-void set_port_isr(cpu_t *, port_t *, uint64_t);
 void handle_port_read(cpu_t *, port_t *);
 
 #endif

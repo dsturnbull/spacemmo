@@ -28,9 +28,8 @@ main(int argc, char *argv[])
     argc -= optind;
     argv += optind;
 
-    disk_t *disk = init_disk(cpu->port0, "/tmp/disk");
+    init_disk(cpu->port0, "/tmp/disk0");
 
-    cpu->halted = false;
     load_cpu(cpu, sys_file);
 
     while (true)

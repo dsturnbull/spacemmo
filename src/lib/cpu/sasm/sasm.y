@@ -5,9 +5,18 @@
 
 #include "src/lib/cpu/sasm/sasm.h"
 
+extern FILE *yyin;
 extern int yylineno;
 extern char *yytext;
 sasm_t *ysasm;
+
+struct yfile {
+	struct yfile *next;
+	char *fn;
+};
+
+struct yfile *files;
+struct yfile *file;
 
 void
 yyerror(const char *str)
@@ -19,7 +28,13 @@ yyerror(const char *str)
 int
 yywrap()
 {
-	return 1;
+	if (files) {
+		yyin = fopen(files->fn, "r");
+		files = files->next;
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
 %}
@@ -31,7 +46,7 @@ yywrap()
 	uint8_t width;
 }
 
-%token QCOLON QNEWLINE QCOMMENT QQUOTE QDQUOTE QEQU
+%token QCOLON QNEWLINE QCOMMENT QQUOTE QDQUOTE QEQU QINCLUDE
 %token QNOP QHLT QLOAD QSTORE QADD QSUB QMUL QDIV QAND QOR
 %token QJMP QJE QJNE QJZ QJNZ QCALL QRET QDUP QPUSH QPOP QSWAP QINT
 
@@ -51,6 +66,7 @@ stmts:
 stmt:
 	  comment
 	| lbl_def
+	| include
 	| data | data_str | data_chr
 	| equ
 	| res
@@ -80,6 +96,20 @@ lbl_def:
 	QTEXT QCOLON QNEWLINE {
 		define_label(ysasm, $1);
 		free($1);
+	};
+
+include:
+	QINCLUDE QDQUOTE QTEXT QDQUOTE QNEWLINE
+	{
+		if (files == NULL) {
+			files = calloc(1, sizeof(struct yfile));
+			file = files;
+		} else {
+			file->next = calloc(1, sizeof(struct yfile));
+			file = file->next;
+		}
+
+		file->fn = strdup($3);
 	};
 
 data:

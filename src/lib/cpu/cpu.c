@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 
 #include "src/lib/spacemmo.h"
 #include "src/lib/cpu/cpu.h"
@@ -32,8 +31,6 @@ init_cpu()
     cpu->port2 = init_port(2, &cpu->mem[IRQ_P2_BUF], 0x100);
     cpu->port3 = init_port(3, &cpu->mem[IRQ_P3_BUF], 0x100);
 
-    cpu->halted = true;
-
     cpu->opmap = malloc(32 * sizeof(uintptr_t));
     cpu->opmap[NOP]     = &handle_nop;
     cpu->opmap[HLT]     = &handle_hlt;
@@ -57,6 +54,8 @@ init_cpu()
     cpu->opmap[POP]     = &handle_pop;
     cpu->opmap[SWAP]    = &handle_swap;
     cpu->opmap[INT]     = &handle_int;
+
+    cpu->ts = calloc(1, sizeof(struct timespec));
 
     //wait_tty_slave(cpu->tty);
 
@@ -99,48 +98,20 @@ load_cpu(cpu_t *cpu, char *sys_file)
 void
 run_cpu(cpu_t *cpu)
 {
-    struct timespec ts;
-    while (true) {
-        memset(&cpu->ke, 0, sizeof(cpu->ke));
-        if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, &ts) > 0) {
-            if (cpu->mem[IRQ_CLK] && cpu->ke.ident == IRQ_CLK)
-                handle_timer(cpu);
-
-            if (cpu->mem[IRQ_KBD] &&
-                    cpu->ke.ident == (uintptr_t)cpu->tty->master)
-                handle_kbd(cpu);
-
-            for (int i = 0; i < 4; i++) {
-                port_t *port = cpu->port0 + i;
-                if (*(uint64_t *)(&cpu->mem[IRQ_P0 + i * 8])) {
-                    if (cpu->ke.ident == (uintptr_t)port->r) {
-                        handle_port_read(cpu, port);
-                    }
-                }
-            }
-        }
-
-        if (cpu->halted)
-            exit(0);
-            //return;
-            //continue;
-
+    if (cpu->ts == NULL)
+        handle_io(cpu);
+    else
         step_cpu(cpu);
-    }
 }
 
 void
 step_cpu(cpu_t *cpu)
 {
-    irq_t irq;
     opcode_t opcode = *(opcode_t *)cpu->ip;
     prev = cpu->ip;
 
-    //char *line = cpu->src[(uint32_t)(cpu->ip - cpu->mem)];
-    //LOG("[\033[36m%-97s\033[0m] ", line);
-
-    LOG("%016lx cy: %08lx op:%02x flags:%02x ip: %016lx rp: %016lx sp: %016lx ",
-            cpu->ip - cpu->mem, cpu->cycles, opcode.op, opcode.flags,
+    LOG("%016lx cy: %08lx op:%02x ip: %016lx rp: %016lx sp: %016lx ",
+            cpu->ip - cpu->mem, cpu->cycles, opcode.op,
             cpu->ip - cpu->mem,
             cpu->rp - &cpu->mem[CPU_RET_STACK],
             cpu->sp - &cpu->mem[CPU_STACK]);
@@ -155,39 +126,17 @@ reset_cpu(cpu_t *cpu)
 }
 
 void
-print_region(cpu_t *cpu, uint8_t *p, uint8_t *data, size_t len, int c)
+handle_io(cpu_t *cpu)
 {
-    for (size_t i = 0; i < len; i++) {
-        if (i % 32 == 0) {
-            if (i)
-                LOG("\n");
-            LOG("%04lx: ", data - cpu->mem + i);
-        }
+    memset(&cpu->ke, 0, sizeof(cpu->ke));
+    if (kevent(cpu->kq, NULL, 0, &cpu->ke, 1, cpu->ts) > 0) {
+        if (cpu->mem[IRQ_CLK] && cpu->ke.ident == IRQ_CLK)
+            handle_timer(cpu);
 
-        if (p == cpu->ip) {
-            if (&data[i] == prev) {
-                LOG("\033[36m");
-            } else if (&data[i] == cpu->ip) {
-                LOG("\033[%im", c);
-            }
-        } else if (&data[i] - p == -4) {
-            LOG("\033[%im", c);
-        }
-
-        LOG(" %02x", data[i]);
-
-        if (p == cpu->ip) {
-            if (&data[i] == prev) {
-                LOG("\033[0m");
-            } else if (&data[i] == cpu->ip) {
-                LOG("\033[0m");
-            }
-        } else if (&data[i] - p == -1) {
-            LOG("\033[0m");
-        }
+        if (cpu->mem[IRQ_KBD] &&
+                cpu->ke.ident == (uintptr_t)cpu->tty->master)
+            handle_kbd(cpu);
     }
-
-    LOG("\n");
 }
 
 void
@@ -221,7 +170,9 @@ handle_nop(cpu_t *cpu, instruction_t *op)
 void
 handle_hlt(cpu_t *cpu, instruction_t *op)
 {
-    cpu->halted = true;
+    if (cpu->ts)
+        free(cpu->ts);
+    cpu->ts = NULL;
     LOG("halt\n");
 }
 
@@ -257,7 +208,7 @@ handle_load(cpu_t *cpu, instruction_t *op)
     memcpy(cpu->sp, &val, op->len);
     cpu->sp += op->len;
 
-    LOG("load %016llx <- %016llx\n", loc, val);
+    LOG("load %016llx <- %016llx\n", val, loc);
     cpu->ip++;
 }
 
@@ -272,7 +223,7 @@ handle_store(cpu_t *cpu, instruction_t *op)
     cpu->sp -= 8;
     memcpy(&loc, cpu->sp, 8);
 
-    LOG("stor %016llx -> %016llx\n", loc, val);
+    LOG("stor %016llx -> %016llx\n", val, loc);
     memcpy(&cpu->mem[loc], &val, op->len);
     cpu->ip++;
 }
@@ -500,7 +451,6 @@ handle_swap(cpu_t *cpu, instruction_t *op)
 void
 handle_int(cpu_t *cpu, instruction_t *op)
 {
-    irq_t irq;
     uint64_t isr = 0;
     uint8_t c = 0;
     uint16_t dt = 0;
@@ -508,70 +458,62 @@ handle_int(cpu_t *cpu, instruction_t *op)
     size_t len = 0;
     uint8_t *data = NULL;
 
-    switch (op->op) {
-        case INT:
+    cpu->sp -= 8;
+    irq_t irq = *((uint64_t *)(cpu->sp));
+
+    switch (irq) {
+        case IRQ_CLK:
+        case IRQ_KBD:
             cpu->sp -= 8;
-            irq = *((uint64_t *)(cpu->sp));
-
-            switch (irq) {
-                case IRQ_CLK:
-                case IRQ_KBD:
-                case IRQ_P0:
-                    cpu->sp -= 8;
-                    isr = *((uint64_t *)(cpu->sp));
-                    break;
-
-                default:
-                    break;
-            }
-
-            switch (irq) {
-                case IRQ_CLK:
-                    cpu->sp -= 2;
-                    dt = *((uint16_t *)(cpu->sp));
-                    LOG("clk  -> %016llx (%04xms)\n", isr, dt);
-                    set_timer_isr(cpu, isr, dt);
-                    break;
-
-                case IRQ_KBD:
-                    LOG("kbd  <- %016llx\n", isr);
-                    set_kbd_isr(cpu, isr);
-                    break;
-
-                case IRQ_TTY:
-                    cpu->sp--;
-                    c = *(uint8_t *)(cpu->sp);
-                    LOG("tty  %02x\n", c);
-                    write_tty(cpu->tty, c);
-                    break;
-
-                case IRQ_P0:
-                case IRQ_P1:
-                case IRQ_P2:
-                case IRQ_P3:
-                    port = find_port(cpu, irq);
-                    len = *(uint8_t *)(cpu->sp - 1);
-                    cpu->sp -= 1;
-                    data = malloc(len);
-                    memcpy(data, cpu->sp - len, len);
-                    cpu->sp -= len;
-                    LOG("prt%i %016llx <- %02lx bytes\n", port->n, isr, len);
-                    write_port(port, data, len);
-                    set_port_isr(cpu, port, isr);
-                    break;
-
-                default:
-                    LOG("not supported\n");
-                    exit(1);
-            }
-
-            cpu->ip++;
+            isr = *((uint64_t *)(cpu->sp));
             break;
 
         default:
-            LOG("unhandled\n");
+            break;
+    }
+
+    switch (irq) {
+        case IRQ_CLK:
+            cpu->sp -= 2;
+            dt = *((uint16_t *)(cpu->sp));
+            LOG("clk  %016llx (%ims)\n", isr, dt);
+            set_timer_isr(cpu, isr, dt);
+            break;
+
+        case IRQ_KBD:
+            LOG("kbd  %016llx\n", isr);
+            set_kbd_isr(cpu, isr);
+            break;
+
+        case IRQ_TTY:
+            cpu->sp--;
+            c = *(uint8_t *)(cpu->sp);
+            LOG("tty  %02x\n", c);
+            write_tty(cpu->tty, c);
+            break;
+
+        case IRQ_P0:
+        case IRQ_P1:
+        case IRQ_P2:
+        case IRQ_P3:
+            port = find_port(cpu, irq);
+            len = *(uint8_t *)(cpu->sp - 1);
+            cpu->sp -= 1;
+            data = malloc(len);
+            memcpy(data, cpu->sp - len, len);
+            cpu->sp -= len;
+            LOG("prt%i <- %02lx bytes\n", port->n, len);
+            write_port(port, data, len);
+            handle_port_read(cpu, port);
+            //set_port_isr(cpu, port, isr);
+            break;
+
+        default:
+            LOG("%i not supported\n", irq);
             exit(1);
     }
+
+    cpu->ip++;
 }
 
 void
@@ -588,8 +530,6 @@ handle_irq(cpu_t *cpu, uint8_t *isr)
         old_ip = cpu->ip;
         step_cpu(cpu);
     }
-
-    //LOG("\n");
 }
 
 void
@@ -645,33 +585,7 @@ handle_kbd(cpu_t *cpu)
 port_t *
 find_port(cpu_t *cpu, irq_t irq)
 {
-    return cpu->port0 + (irq - IRQ_P0) * 8;
-}
-
-void
-set_port_isr(cpu_t *cpu, port_t *port, uint64_t isr)
-{
-    // watch for input
-    memset(&cpu->ke, 0, sizeof(struct kevent));
-    EV_SET(&cpu->ke, port->r, EVFILT_READ, EV_ADD | EV_CLEAR,
-            0, 0, NULL);
-
-    if (kevent(cpu->kq, &cpu->ke, 1, NULL, 0, NULL) == -1) {
-        perror("port read");
-        exit(1);
-    }
-
-    // watch for input
-    memset(&cpu->ke, 0, sizeof(struct kevent));
-    EV_SET(&cpu->ke, port->w, EVFILT_READ, EV_ADD | EV_CLEAR,
-            0, 0, NULL);
-
-    if (kevent(cpu->kq, &cpu->ke, 1, NULL, 0, NULL) == -1) {
-        perror("port read");
-        exit(1);
-    }
-
-    memcpy(&cpu->mem[IRQ_P0 + port->n * 8], &isr, 8);
+    return cpu->port0 + (irq - IRQ_P0) / 8;
 }
 
 void
@@ -679,13 +593,13 @@ handle_port_read(cpu_t *cpu, port_t *port)
 {
     uint8_t buf[0x100];
     size_t len;
-    uint64_t ptr = *(uint64_t *)(&cpu->mem[IRQ_P0 + port->n * 8]);
+    uint64_t ptr = &cpu->mem[IRQ_P0 + port->n * 8] - cpu->mem;
     uint8_t *out = &cpu->mem[IRQ_P0 + port->n * 8 + 8];
 
     len = read_port(port, buf, 0x100);
     memcpy(out, &buf, len);
     out += len;
     LOG("prt%i wrote %08lx bytes -> %016llx\n", port->n, len, ptr);
-    handle_irq(cpu, &cpu->mem[ptr]);
+    //handle_irq(cpu, &cpu->mem[ptr]);
 }
 

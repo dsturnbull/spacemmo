@@ -216,14 +216,12 @@ void
 cmd_cpu_start(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu->halted = false;
 }
 
 void
 cmd_cpu_stop(console_t *console, int argc, char *argv[])
 {
     cpu_t *cpu = console->ui->client->entity->cpu;
-    cpu->halted = true;
 }
 
 void

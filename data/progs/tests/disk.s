@@ -1,9 +1,11 @@
-db timer 0
-
 disk_status equ 0x0
 disk_set    equ 0x1
 disk_rd     equ 0x2
 disk_wr     equ 0x3
+disk_sz     equ 0x100000
+
+db disk_pos 0
+db timer 0
 
 _main:
     push byte disk_status
@@ -14,7 +16,7 @@ _main:
     ret
 
 _disk_status_isr:
-    push word 50
+    push word 10
     push _loop
     push CLK
     int
@@ -33,10 +35,13 @@ _loop:
     ;push timer
     ;swap
 
-    push byte disk_wr
+    push IO_0_BUF
     push timer
     load dword
-    push byte 5
+    store dword
+
+    push byte disk_wr
+    push byte 1
     push _disk_wr_isr
     push IO_0
     int

@@ -44,7 +44,6 @@ main(int argc, char *argv[])
 
     cpu_t *cpu = client->entity->cpu;
     load_cpu(cpu, "data/progs/tests/disk.sys");
-    cpu->halted = false;
 
     disk_t *disk = init_disk(cpu->port0, "/tmp/disk");
     //thruster_t *thruster = init_thruster(cpu->port1, client->entity->acc);

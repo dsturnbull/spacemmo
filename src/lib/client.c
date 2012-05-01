@@ -137,7 +137,7 @@ update_cpus(client_t *client)
         foreach_system(cluster, ^(system_t *system) {
             foreach_entity(system, ^(entity_t *entity) {
                 if (entity->cpu) {
-                    run_cpu(entity->cpu);
+                    step_cpu(entity->cpu);
                 }
             });
         });

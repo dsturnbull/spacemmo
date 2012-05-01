@@ -49,6 +49,11 @@ disk_handler(port_t *port, uint8_t *data, size_t len)
     int response = 0;
     size_t pos = 0;
 
+    //printf("disk <- ");
+    //for (size_t i = 0; i < len; i++)
+    //    printf("%02x ", data[i]);
+    //printf("\n");
+
     disk_cmd_t cmd = 0;
     memcpy(&cmd, data, 1);
     data++;
@@ -56,14 +61,14 @@ disk_handler(port_t *port, uint8_t *data, size_t len)
 
     switch (cmd) {
         case DISK_STATUS:
-            //printf("disk status\n");
+            printf("disk status\n");
             response = 0;
             write_client(port, &response, 1);
             break;
 
         case DISK_SET:
             memcpy(&pos, data, len);
-            //printf("disk set to %08lx\n", pos);
+            printf("disk set to %08lx\n", pos);
             set_disk_position(disk, pos);
             response = 0;
             write_client(port, &response, 1);
@@ -71,14 +76,14 @@ disk_handler(port_t *port, uint8_t *data, size_t len)
 
         case DISK_RD:
             memcpy(&len, data, len);
-            //printf("disk read %08lx bytes <- %08lx\n", len, disk->pos);
+            printf("disk read %08lx bytes <- %08lx\n", len, disk->pos);
             response = 0;
             write_client(port, &response, 1);
             break;
 
         case DISK_WR:
-            //printf("disk write %08lx bytes -> %08lx\n", port->dma_len,
-            //        disk->pos);
+            printf("disk write %08lx bytes -> %08lx\n", port->dma_len,
+                    disk->pos);
             write_disk(disk, port->dma, port->dma_len);
             response = 0;
             write_client(port, &response, 1);
