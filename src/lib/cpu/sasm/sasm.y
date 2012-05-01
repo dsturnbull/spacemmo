@@ -28,8 +28,10 @@ yyerror(const char *str)
 int
 yywrap()
 {
+	fclose(yyin);
 	if (files) {
 		yyin = fopen(files->fn, "r");
+		free(files);
 		files = files->next;
 		return 0;
 	} else {

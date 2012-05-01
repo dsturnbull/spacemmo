@@ -85,7 +85,6 @@ assemble(sasm_t *sasm, char *src_file)
     write_prologue(sasm);
 
     fwrite(sasm->prog, sasm->prog_len, 1, sasm->sys_fp);
-    fclose(sasm->sys_fp);
     free(sys_file);
 }
 

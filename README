@@ -12,11 +12,11 @@ vm:
             clk: handle isr
             port: push output len, send output to mem
 
-    * disable update timer when not halted
+    o disable update timer when not halted
     * refactor op handlers
     * add pseudo immediate mode instructions
     * add two-op swap instruction
-    * dos
+    / dos
     * unix
     * fpu
     * gfx
