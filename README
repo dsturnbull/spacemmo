@@ -1,6 +1,15 @@
 vm:
-    / paging
-    * rethink interrupts
+    * bootstrap
+        external disk manipulation
+        boot sector
+    * scheduler
+    * paging
+        set isr
+        memory access: mmu on?
+            page found? kgo
+            page not found? call isr
+
+    * interrupts
         code -> int
             kbd: save isr
             tty: send char

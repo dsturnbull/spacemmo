@@ -12,9 +12,15 @@ init_tty()
 {
     tty_t *tty = calloc(1, sizeof(tty_t));
 
+    return tty;
+}
+
+bool
+connect_tty(tty_t *tty)
+{
     if (openpty(&tty->master, &tty->slave, NULL, NULL, NULL) != 0) {
         perror("openpty");
-        return NULL;
+        return false;
     }
 
     //fcntl(tty->master, F_SETFL, O_NONBLOCK);
@@ -27,8 +33,7 @@ init_tty()
     //tcgetattr(tty->master, &tio);
     //tio.c_lflag &= ECHO;
     //tcsetattr(tty->master, TCSANOW, &tio);
-
-    return tty;
+    return true;
 }
 
 bool

@@ -3,7 +3,7 @@ CC=clang
 #OPT=-O3
 OPT=-g
 CFLAGS+=-Wall -Werror -Wextra -Wformat=2 -Wswitch
-CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-unused-function
+CFLAGS+=-Wno-unused-variable -Wno-unused-parameter -Wno-unused-function -Wno-format-nonliteral
 CFLAGS+=-pedantic-errors -std=c11
 CFLAGS+=-I.
 CFLAGS+=$(OPT) -mtune=native -fcommon -pipe
@@ -34,6 +34,12 @@ CPU_OBJS=$(CPU_SRCS:%.c=%.o)
 CPU_CFLAGS+=-flto $(OPT)
 CPU_LDFLAGS=$(LDFLAGS)
 
+DISK=disk
+DISK_SRCS=src/disk.c
+DISK_OBJS=$(DISK_SRCS:%.c=%.o)
+DISK_CFLAGS+=-flto $(OPT)
+DISK_LDFLAGS=$(LDFLAGS)
+
 SASM=sasm
 SASM_SRC=src/sasm.c
 SASM_LEX_SRC=src/lib/cpu/sasm/sasm.l
@@ -47,11 +53,17 @@ SASM_OBJS=$(SASM_SRCS:%.c=%.o)
 SASM_CFLAGS+=-flto $(OPT)
 SASM_LDFLAGS=$(LDFLAGS)
 
-SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(CPU_SRCS) $(SASM_SRC)
+TEST=test
+TEST_SRCS=src/test.c
+TEST_OBJS=$(TEST_SRCS:%.c=%.o)
+TEST_CFLAGS+=-flto $(OPT)
+TEST_LDFLAGS=$(LDFLAGS)
+
+SRCS=$(CL_SRCS) $(SV_SRCS) $(LIB_SRCS) $(CPU_SRCS) $(SASM_SRC) $(TEST_SRCS) $(DISK_SRCS)
 OBJS=$(SRCS:%.c=%.o)
 DEPS=$(SRCS:%.c=%.d)
 
-all: $(LIB) $(CL) $(SV) $(CPU) $(SASM)
+all: $(LIB) $(CL) $(SV) $(CPU) $(SASM) $(TEST) $(DISK)
 
 $(CL): $(CL_OBJS) $(LIB)
 	$(CC) $(CL_CFLAGS) $(CL_LDFLAGS) -L. -lspacemmo $(CL_OBJS) -o $@
@@ -61,6 +73,12 @@ $(SV): $(SV_OBJS) $(LIB)
 
 $(CPU): $(CPU_OBJS) $(LIB)
 	$(CC) $(CPU_CFLAGS) $(CPU_LDFLAGS) -L. -lspacemmo $(CPU_OBJS) -o $@
+
+$(TEST): $(TEST_OBJS) $(LIB)
+	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) -L. -lspacemmo $(TEST_OBJS) -o $@
+
+$(DISK): $(DISK_OBJS) $(LIB)
+	$(CC) $(DISK_CFLAGS) $(DISK_LDFLAGS) -L. -lspacemmo $(DISK_OBJS) -o $@
 
 %.c: %.y
 %.c: %.l
@@ -80,7 +98,7 @@ $(LIB): $(LIB_OBJS)
 clean:
 	rm -f $(OBJS)
 	rm -f $(DEPS)
-	rm -f $(CL) $(SV) $(CPU) $(SASM) $(LIB)
+	rm -f $(CL) $(SV) $(CPU) $(SASM) $(LIB) $(TEST) $(DISK)
 	rm -f $(SASM_LEXER_SRC)
 	rm -f $(SASM_YACC_PARSER_HDR) $(SASM_YACC_PARSER_SRC)
 	rm -f $(SASM_OBJS)

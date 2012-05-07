@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "src/lib/spacemmo.h"
 #include "src/lib/world.h"
@@ -68,5 +69,15 @@ replace_ext(char *str, char *ext)
     asprintf(&new, "%s%s", orig, ext);
     free(orig);
     return new;
+}
+
+void
+slog(char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    if (getenv("DEBUG"))
+        vfprintf(stderr, fmt, ap);
+    va_end(ap);
 }
 

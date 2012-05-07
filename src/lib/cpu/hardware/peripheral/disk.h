@@ -15,6 +15,7 @@ typedef struct disk_st {
     uint8_t *map;
     uint8_t *curpos;
     size_t pos;
+    size_t sz;
 } disk_t;
 
 typedef enum disk_cmd_e {
@@ -25,6 +26,7 @@ typedef enum disk_cmd_e {
 } disk_cmd_t;
 
 disk_t * init_disk(port_t *, char *);
+void free_disk(disk_t *);
 void disk_handler(port_t *, uint8_t *, size_t);
 void set_disk_position(disk_t *, size_t);
 size_t read_disk(disk_t *, uint8_t **, size_t len);

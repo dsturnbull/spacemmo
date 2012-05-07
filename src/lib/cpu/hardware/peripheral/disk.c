@@ -15,9 +15,11 @@ init_disk(port_t *port, char *fn)
 {
     disk_t *disk = calloc(1, sizeof(disk_t));
 
-    disk->port = port;
-    port->handler = &disk_handler;
-    port->hw = disk;
+    if (port) {
+        disk->port = port;
+        port->handler = &disk_handler;
+        port->hw = disk;
+    }
 
     disk->fn = strdup(fn);
 
@@ -26,7 +28,8 @@ init_disk(port_t *port, char *fn)
         exit(1);
     }
 
-    lseek(disk->fd, CPU_DISK_SIZE - 1, SEEK_SET);
+    disk->sz = CPU_DISK_SIZE;
+    lseek(disk->fd, disk->sz - 1, SEEK_SET);
     write(disk->fd, "", 1);
     lseek(disk->fd, 0, SEEK_SET);
 
@@ -40,6 +43,12 @@ init_disk(port_t *port, char *fn)
     disk->pos = disk->curpos - disk->map;
 
     return disk;
+}
+
+void
+free_disk(disk_t *disk)
+{
+    munmap(disk->map, disk->sz);
 }
 
 void

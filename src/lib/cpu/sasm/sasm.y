@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include "src/lib/spacemmo.h"
 #include "src/lib/cpu/sasm/sasm.h"
 
 extern FILE *yyin;
@@ -97,16 +98,16 @@ comment:
 
 lbl_def:
 	QTEXT QCOLON QNEWLINE {
-		printf("lbl_def\n");
+		slog("lbl_def\n");
 		define_label(ysasm, $1);
 		free($1);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 include:
 	QINCLUDE QQTEXT QNEWLINE
 	{
-		printf("include\n");
+		slog("include\n");
 		if (files == NULL) {
 			files = calloc(1, sizeof(struct yfile));
 			file = files;
@@ -119,89 +120,90 @@ include:
 		$2++;
 		$2[strlen($2) - 1] = '\0';
 		file->fn = strdup($2);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 data:
 	QDTYPE QTEXT QNUMBER QNEWLINE {
-		printf("data\n");
+		slog("data\n");
 		define_variable(ysasm, $2, $3, $1);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 data_str:
 	QDTYPE QTEXT QQTEXT QNEWLINE {
-		printf("data_str\n");
+		slog("data_str\n");
 		// remove quotes
 		$3++;
 		$3[strlen($3) - 1] = '\0';
 		define_data(ysasm, $2, (uint8_t *)$3, strlen($3));
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 data_chr:
 	QDTYPE QTEXT QTEXT QNEWLINE {
-		printf("data_chr\n");
+		slog("data_chr\n");
 		define_variable(ysasm, $2, $3[0], sizeof(uint8_t));
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 equ:
 	QTEXT QEQU QNUMBER QNEWLINE {
-		printf("equ\n");
-		define_constant(ysasm, $1, $3);
-		printf("\n\n");
+		slog("equ\n");
+		variable_t *var = define_constant(ysasm, $1, $3);
+		var->value = $3;
+		slog("\n\n");
 	};
 
 equrel:
 	QTEXT QEQU QEQUREL QTEXT QNEWLINE {
-		printf("equrel\n");
+		slog("equrel\n");
 		variable_t *other = find_variable(ysasm, $4);
-		printf("%lu\n", other->len);
+		slog("%lu\n", other->len);
 		variable_t *var = define_constant(ysasm, $1, 0);
 		var->value = other->len;
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 res:
 	QRTYPE QTEXT QNUMBER QNEWLINE {
-		printf("res\n");
+		slog("res\n");
 		uint8_t *data = calloc($1, $3);
 		define_data(ysasm, $2, data, $3 * $1);
 		free(data);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 push:
 	QPUSH QNUMBER QNEWLINE {
-		printf("push\n");
+		slog("push\n");
 		push1(ysasm, PUSH, &$2, 8);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 pusht:
 	QPUSH QSTYPE QNUMBER QNEWLINE {
-		printf("pusht\n");
+		slog("pusht\n");
 		push1(ysasm, PUSH, &$3, $2);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 pushv:
 	QPUSH QTEXT QNEWLINE {
-		printf("pushv\n");
+		slog("pushv\n");
 		variable_t *var = find_or_create_variable(ysasm, $2);
 		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1, 8);
 		push1(ysasm, PUSH, &var->addr, 8);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 pushtv:
 	QPUSH QSTYPE QTEXT QNEWLINE {
-		printf("pushtv\n");
+		slog("pushtv\n");
 		variable_t *var = find_or_create_variable(ysasm, $3);
 		add_variable_ref(ysasm, var, ysasm->ip - ysasm->prog + 1, $2);
 		push1(ysasm, PUSH, &var->addr, $2);
-		printf("\n\n");
+		slog("\n\n");
 	};
 
 pop:
@@ -357,7 +359,7 @@ jnzt:
 	};
 
 ret:	QRET	QNEWLINE { push0(ysasm, RET,	1); };
-call:	QCALL	QNEWLINE { push0(ysasm, CALL,	1); };
+call:	QCALL	QNEWLINE { push0(ysasm, CALL,	8); };
 nop:	QNOP	QNEWLINE { push0(ysasm, NOP,	1); };
 hlt:	QHLT	QNEWLINE { push0(ysasm, HLT, 	1); };
 int:	QINT	QNEWLINE { push0(ysasm, INT, 	1); };

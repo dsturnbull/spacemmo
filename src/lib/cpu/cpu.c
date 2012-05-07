@@ -5,6 +5,7 @@
 #include "src/lib/spacemmo.h"
 #include "src/lib/cpu/cpu.h"
 #include "src/lib/cpu/hardware/tty.h"
+#include "src/lib/cpu/hardware/mmu.h"
 #include "src/lib/cpu/hardware/port.h"
 
 uint8_t *prev;
@@ -15,8 +16,8 @@ init_cpu()
     cpu_t *cpu = calloc(1, sizeof(*cpu));
 
     cpu->ip = cpu->mem;
-    cpu->sp = &cpu->mem[CPU_STACK];
-    cpu->rp = &cpu->mem[CPU_RET_STACK];
+    cpu->sp = &cpu->mem[STACK];
+    cpu->rp = &cpu->mem[RET_STACK];
 
     // init kqueue
     if ((cpu->kq = kqueue()) == -1) {
@@ -26,34 +27,38 @@ init_cpu()
 
     cpu->log = stdout;
     cpu->tty = init_tty();
+    cpu->mmu = init_mmu();
     cpu->port0 = init_port(0, &cpu->mem[IRQ_P0_BUF], 0x100);
     cpu->port1 = init_port(1, &cpu->mem[IRQ_P1_BUF], 0x100);
     cpu->port2 = init_port(2, &cpu->mem[IRQ_P2_BUF], 0x100);
     cpu->port3 = init_port(3, &cpu->mem[IRQ_P3_BUF], 0x100);
 
-    cpu->opmap = malloc(32 * sizeof(uintptr_t));
-    cpu->opmap[NOP]     = &handle_nop;
-    cpu->opmap[HLT]     = &handle_hlt;
-    cpu->opmap[CALL]    = &handle_call;
-    cpu->opmap[RET]     = &handle_ret;
-    cpu->opmap[LOAD]    = &handle_load;
-    cpu->opmap[STORE]   = &handle_store;
-    cpu->opmap[ADD]     = &handle_add;
-    cpu->opmap[SUB]     = &handle_sub;
-    cpu->opmap[MUL]     = &handle_mul;
-    cpu->opmap[DIV]     = &handle_div;
-    cpu->opmap[AND]     = &handle_and;
-    cpu->opmap[OR]      = &handle_or;
-    cpu->opmap[JMP]     = &handle_jmp;
-    cpu->opmap[JE]      = &handle_je;
-    cpu->opmap[JNE]     = &handle_jne;
-    cpu->opmap[JZ]      = &handle_jz;
-    cpu->opmap[JNZ]     = &handle_jnz;
-    cpu->opmap[PUSH]    = &handle_push;
-    cpu->opmap[DUP]     = &handle_dup;
-    cpu->opmap[POP]     = &handle_pop;
-    cpu->opmap[SWAP]    = &handle_swap;
-    cpu->opmap[INT]     = &handle_int;
+    cpu->opmap0 = malloc(32 * sizeof(uintptr_t));
+    cpu->opmap1 = malloc(32 * sizeof(uintptr_t));
+    cpu->opmap2 = malloc(32 * sizeof(uintptr_t));
+
+    cpu->opmap0[NOP]     = &handle_nop;
+    cpu->opmap0[HLT]     = &handle_hlt;
+    cpu->opmap1[CALL]    = &handle_call;
+    cpu->opmap0[RET]     = &handle_ret;
+    cpu->opmap0[LOAD]    = &handle_load;
+    cpu->opmap1[STORE]   = &handle_store;
+    cpu->opmap2[ADD]     = &handle_add;
+    cpu->opmap2[SUB]     = &handle_sub;
+    cpu->opmap2[MUL]     = &handle_mul;
+    cpu->opmap2[DIV]     = &handle_div;
+    cpu->opmap2[AND]     = &handle_and;
+    cpu->opmap2[OR]      = &handle_or;
+    cpu->opmap1[JMP]     = &handle_jmp;
+    cpu->opmap1[JE]      = &handle_je;
+    cpu->opmap1[JNE]     = &handle_jne;
+    cpu->opmap1[JZ]      = &handle_jz;
+    cpu->opmap1[JNZ]     = &handle_jnz;
+    cpu->opmap0[PUSH]    = &handle_push;
+    cpu->opmap1[DUP]     = &handle_dup;
+    cpu->opmap1[POP]     = &handle_pop;
+    cpu->opmap0[SWAP]    = &handle_swap;
+    cpu->opmap0[INT]     = &handle_int;
 
     cpu->ts = calloc(1, sizeof(struct timespec));
 
@@ -113,8 +118,8 @@ step_cpu(cpu_t *cpu)
     LOG("%016lx cy: %08lx op:%02x ip: %016lx rp: %016lx sp: %016lx ",
             cpu->ip - cpu->mem, cpu->cycles, opcode.op,
             cpu->ip - cpu->mem,
-            cpu->rp - &cpu->mem[CPU_RET_STACK],
-            cpu->sp - &cpu->mem[CPU_STACK]);
+            cpu->rp - &cpu->mem[RET_STACK],
+            cpu->sp - &cpu->mem[STACK]);
 
     handle_op(cpu, &opcode);
     cpu->cycles++;
@@ -147,16 +152,34 @@ handle_op(cpu_t *cpu, opcode_t *opcode)
         LOG("%i", (*(uint8_t *)opcode & (1 << i)) != 0);
     LOG(") ");
 
+    uint64_t arg = 0;
+    uint64_t a = 0, b = 0;
+
     instruction_t instruction;
     memcpy(&instruction, opcode, sizeof(*opcode));
     instruction.len = 1 << opcode->flags;
 
     LOG("len: %lu ", instruction.len);
 
-    void (*op)(cpu_t *, instruction_t *) = cpu->opmap[opcode->op];
-    if (op)
-        op(cpu, &instruction);
-    else
+    void (*op0)(cpu_t *, instruction_t *);
+    void (*op1)(cpu_t *, instruction_t *, uint64_t);
+    void (*op2)(cpu_t *, instruction_t *, uint64_t, uint64_t);
+
+    if ((op0 = cpu->opmap0[opcode->op])) {
+        op0(cpu, &instruction);
+    } else if ((op1 = cpu->opmap1[opcode->op])) {
+        memcpy(&arg, cpu->sp - instruction.len, instruction.len);
+        cpu->sp -= instruction.len;
+        op1(cpu, &instruction, arg);
+    } else if ((op2 = cpu->opmap2[opcode->op])) {
+        memcpy(&a, cpu->sp - instruction.len, instruction.len);
+        cpu->sp -= instruction.len;
+        memcpy(&b, cpu->sp - instruction.len, instruction.len);
+        cpu->sp -= instruction.len;
+        op2(cpu, &instruction, a, b);
+    }
+
+    if (!(op0 || op1 || op2))
         exit(1);
 }
 
@@ -177,15 +200,13 @@ handle_hlt(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_call(cpu_t *cpu, instruction_t *op)
+handle_call(cpu_t *cpu, instruction_t *op, uint64_t arg)
 {
-    uint64_t addr = *(uint64_t *)(cpu->sp - 8);
-    LOG("call %016lx -> %016llx\n", cpu->ip - cpu->mem, addr);
+    LOG("call %016lx -> %016llx\n", cpu->ip - cpu->mem, arg);
     uint64_t ret = cpu->ip - cpu->mem + 1;
-    cpu->ip = &cpu->mem[addr];
+    cpu->ip = &cpu->mem[arg];
     memcpy(cpu->rp, &ret, sizeof(ret));
     cpu->rp += 8;
-    cpu->sp -= 8;
 }
 
 void
@@ -200,10 +221,9 @@ handle_ret(cpu_t *cpu, instruction_t *op)
 void
 handle_load(cpu_t *cpu, instruction_t *op)
 {
-    uint64_t loc = 0, val = 0;
-    memcpy(&loc, cpu->sp - 8, 8);
     cpu->sp -= 8;
-
+    uint64_t loc = *(uint64_t *)(cpu->sp);
+    uint64_t val = 0;
     memcpy(&val, &cpu->mem[loc], op->len);
     memcpy(cpu->sp, &val, op->len);
     cpu->sp += op->len;
@@ -213,7 +233,7 @@ handle_load(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_store(cpu_t *cpu, instruction_t *op)
+handle_store(cpu_t *cpu, instruction_t *op, uint64_t arg)
 {
     uint64_t val = 0, loc = 0;
 
@@ -229,101 +249,79 @@ handle_store(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_add(cpu_t *cpu, instruction_t *op)
+handle_add(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t r = b + a;
     LOG("add  %016llx + %016llx == %016llx\n", a, b, r);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
-    cpu->sp -= op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_sub(cpu_t *cpu, instruction_t *op)
+handle_sub(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t r = b - a;
     LOG("sub  %016llx - %016llx == %016llx\n", a, b, r);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
-    cpu->sp -= op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_mul(cpu_t *cpu, instruction_t *op)
+handle_mul(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t r = b * a;
     LOG("mul  %016llx * %016llx == %016llx\n", a, b, r);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
-    cpu->sp -= op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_div(cpu_t *cpu, instruction_t *op)
+handle_div(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t q = b / a;
     uint64_t r = b % a;
     LOG("div  %016llx / %016llx == %016llx r %016llx\n", a, b, q, r);
-    memcpy(cpu->sp - op->len * 1, &q, op->len);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
+    memcpy(cpu->sp, &q, op->len);
+    cpu->sp += op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_and(cpu_t *cpu, instruction_t *op)
+handle_and(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t r = b & a;
     LOG("and  %016llx & %016llx == %016llx\n", a, b, r);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
-    cpu->sp -= op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_or(cpu_t *cpu, instruction_t *op)
+handle_or(cpu_t *cpu, instruction_t *op, uint64_t a, uint64_t b)
 {
-    uint64_t a = 0, b = 0;
-    memcpy(&a, cpu->sp - op->len * 1, op->len);
-    memcpy(&b, cpu->sp - op->len * 2, op->len);
     uint64_t r = b | a;
     LOG("or   %016llx | %016llx == %016llx\n", a, b, r);
-    memcpy(cpu->sp - op->len * 2, &r, op->len);
-    cpu->sp -= op->len;
+    memcpy(cpu->sp, &r, op->len);
+    cpu->sp += op->len;
     cpu->ip++;
 }
 
 void
-handle_jmp(cpu_t *cpu, instruction_t *op)
+handle_jmp(cpu_t *cpu, instruction_t *op, uint64_t loc)
 {
-    uint64_t loc;
-    cpu->sp -= 8;
-    memcpy(&loc, cpu->sp, 8);
     LOG("jmp  %016llx\n", loc);
     cpu->ip = &cpu->mem[loc];
 }
 
 void
-handle_je(cpu_t *cpu, instruction_t *op)
+handle_je(cpu_t *cpu, instruction_t *op, uint64_t loc)
 {
-    uint64_t a = 0, b = 0, loc = 0;
-
-    cpu->sp -= 8;
-    memcpy(&loc, cpu->sp, 8);
+    uint64_t a = 0, b = 0;
 
     cpu->sp -= op->len;
     memcpy(&a,   cpu->sp, op->len);
@@ -341,12 +339,9 @@ handle_je(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_jne(cpu_t *cpu, instruction_t *op)
+handle_jne(cpu_t *cpu, instruction_t *op, uint64_t loc)
 {
-    uint64_t a = 0, b = 0, loc = 0;
-
-    cpu->sp -= 8;
-    memcpy(&loc, cpu->sp, 8);
+    uint64_t a = 0, b = 0;
 
     cpu->sp -= op->len;
     memcpy(&a,   cpu->sp, op->len);
@@ -364,62 +359,54 @@ handle_jne(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_jz(cpu_t *cpu, instruction_t *op)
+handle_jz(cpu_t *cpu, instruction_t *op, uint64_t loc)
 {
-    uint64_t arg = 0, loc = 0;
-
-    cpu->sp -= 8;
-    memcpy(&loc, cpu->sp, 8);
+    uint64_t val = 0;
 
     cpu->sp -= op->len;
-    memcpy(&arg, cpu->sp, op->len);
+    memcpy(&val, cpu->sp, op->len);
 
-    if (arg == 0) {
-        LOG("jz   %016llx == 0 -> %016llx\n", arg, loc);
+    if (val == 0) {
+        LOG("jz   %016llx == 0 -> %016llx\n", val, loc);
         cpu->ip = &cpu->mem[loc];
     } else {
-        LOG("jz   %016llx != 0\n", arg);
+        LOG("jz   %016llx != 0\n", val);
         cpu->ip++;
     }
 }
 
 void
-handle_jnz(cpu_t *cpu, instruction_t *op)
+handle_jnz(cpu_t *cpu, instruction_t *op, uint64_t loc)
 {
-    uint64_t arg = 0, loc = 0;
-
-    cpu->sp -= 8;
-    memcpy(&loc, cpu->sp, 8);
+    uint64_t val = 0;
 
     cpu->sp -= op->len;
-    memcpy(&arg, cpu->sp, op->len);
+    memcpy(&val, cpu->sp, op->len);
 
-    if (arg != 0) {
-        LOG("jz   %016llx != 0 -> %016llx\n", arg, loc);
+    if (val != 0) {
+        LOG("jz   %016llx != 0 -> %016llx\n", val, loc);
         cpu->ip = &cpu->mem[loc];
     } else {
-        LOG("jz   %016llx == 0\n", arg);
+        LOG("jz   %016llx == 0\n", val);
         cpu->ip++;
     }
 }
 
 void
-handle_dup(cpu_t *cpu, instruction_t *op)
+handle_dup(cpu_t *cpu, instruction_t *op, uint64_t arg)
 {
-    uint64_t arg = 0;
-    memcpy(&arg, cpu->sp - op->len, op->len);
     LOG("dup  %016llx\n", arg);
     memcpy(cpu->sp, &arg, op->len);
-    cpu->sp += op->len;
+    cpu->sp += op->len * 2;
     cpu->ip++;
 }
 
 void
 handle_push(cpu_t *cpu, instruction_t *op)
 {
-    uint64_t arg = 0;
-    memcpy(&arg, cpu->ip + 1, op->len);
-    LOG("push %016llx\n", arg);
+    uint64_t val = 0;
+    memcpy(&val, cpu->ip + 1, op->len);
+    LOG("push %016llx\n", val);
     memcpy(cpu->sp, cpu->ip + 1, op->len);
     cpu->sp += op->len;
     cpu->ip += op->len;
@@ -427,12 +414,9 @@ handle_push(cpu_t *cpu, instruction_t *op)
 }
 
 void
-handle_pop(cpu_t *cpu, instruction_t *op)
+handle_pop(cpu_t *cpu, instruction_t *op, uint64_t arg)
 {
-    uint64_t arg = 0;
-    memcpy(&arg, cpu->sp - op->len, op->len);
     LOG("pop  %016llx\n", arg);
-    cpu->sp -= op->len;
     cpu->ip++;
 }
 
@@ -504,6 +488,11 @@ handle_int(cpu_t *cpu, instruction_t *op)
             write_tty(cpu->tty, c);
             break;
 
+        case IRQ_MMU:
+            LOG("mmu\n");
+            mmu_int(cpu->mmu, &cpu->sp);
+            break;
+
         case IRQ_P0:
         case IRQ_P1:
         case IRQ_P2:
@@ -519,10 +508,6 @@ handle_int(cpu_t *cpu, instruction_t *op)
             handle_port_read(cpu, port);
             //set_port_isr(cpu, port, isr);
             break;
-
-        default:
-            LOG("%i not supported\n", irq);
-            exit(1);
     }
 
     cpu->ip++;
